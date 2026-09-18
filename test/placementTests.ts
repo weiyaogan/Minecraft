@@ -269,6 +269,80 @@ async function runTests() {
   assert(!invalidVal.valid, 'Placement inside player is rejected');
   assert(useWorldStore.getState().blocks.length === initialCount, 'Blocks array untouched when placement is rejected');
 
+  // -------------------------------------------------------------
+  // TEST 12: Material Break Properties & Dropped Item Rules
+  // -------------------------------------------------------------
+  console.log('\n--- Test 12: Material Break Properties & Dropped Items ---');
+  const { BLOCK_PROPERTIES } = await import('../src/world/blocks');
+  // Stone: requiresTool = true -> bare hand break drops NOTHING
+  assert(BLOCK_PROPERTIES.stone.requiresTool === true, 'Stone requires tool to harvest');
+  assert(BLOCK_PROPERTIES.stone.breakTime === 7.5, 'Stone has 7.5s bare-hand break time');
+  const stoneHarvestByHand = !BLOCK_PROPERTIES.stone.requiresTool;
+  assert(!stoneHarvestByHand, 'Stone broken by bare hand drops nothing');
+
+  // Grass: canBreakByHand = true, requiresTool = false, drops = dirt, dropCount = 1
+  assert(BLOCK_PROPERTIES.grass.requiresTool === false, 'Grass does not require tool');
+  assert(BLOCK_PROPERTIES.grass.drops === 'dirt' && BLOCK_PROPERTIES.grass.dropCount === 1, 'Grass drops 1 Dirt item');
+
+  // Dirt: canBreakByHand = true, requiresTool = false, drops = dirt, dropCount = 1
+  assert(BLOCK_PROPERTIES.dirt.requiresTool === false, 'Dirt does not require tool');
+  assert(BLOCK_PROPERTIES.dirt.drops === 'dirt' && BLOCK_PROPERTIES.dirt.dropCount === 1, 'Dirt drops 1 Dirt item');
+
+  // -------------------------------------------------------------
+  // TEST 13: Item Throw / Drop Feedback & Mechanics
+  // -------------------------------------------------------------
+  console.log('\n--- Test 13: Item Throw Mechanics & Entity Separation ---');
+  useWorldStore.setState({
+    hotbar: [
+      { type: 'stone', count: 3 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+    ],
+    selectedHotbarSlot: 0,
+    droppedItems: [],
+    playerFeetPosition: new Vector3(0, 5, 0),
+    playerHeight: 1.8,
+  });
+
+  // Throw 1 stone item forward
+  useWorldStore.getState().throwCurrentItem(false, new Vector3(0, 0, -1));
+  const hotbarAfterThrow = useWorldStore.getState().hotbar[0];
+  const itemsAfterThrow = useWorldStore.getState().droppedItems;
+  assert(hotbarAfterThrow.count === 2 && hotbarAfterThrow.type === 'stone', 'Slot decremented to 2 after single item throw');
+  assert(itemsAfterThrow.length === 1 && itemsAfterThrow[0].type === 'stone' && itemsAfterThrow[0].count === 1, 'DroppedItem entity spawned with count 1');
+  assert(itemsAfterThrow[0].pickupDelay === 0.5, 'Thrown item has 0.5s player pickup delay');
+
+  // -------------------------------------------------------------
+  // TEST 14: Audio Functions Resilience in Headless / Node
+  // -------------------------------------------------------------
+  console.log('\n--- Test 14: Audio Functions Resilience ---');
+  const audioModule = await import('../src/utils/audio');
+  // In Node environment, window.AudioContext is undefined; verify functions exit safely without throwing
+  let audioThrew = false;
+  try {
+    audioModule.playDigSound('stone');
+    audioModule.playDigSound('grass');
+    audioModule.playDigSound('dirt');
+    audioModule.playBreakSound('stone');
+    audioModule.playBreakSound('grass');
+    audioModule.playBreakSound('dirt');
+    audioModule.playPlaceSound('stone');
+    audioModule.playPlaceSound('dirt');
+    audioModule.playPickupSound();
+    audioModule.playItemDropSound();
+    audioModule.playInventoryClickSound();
+    audioModule.playJumpSound();
+  } catch (err) {
+    audioThrew = true;
+  }
+  assert(!audioThrew, 'All sound synthesis functions execute safely without crashing');
+
   console.log(`\n=== TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);
   if (failed > 0) process.exit(1);
 }

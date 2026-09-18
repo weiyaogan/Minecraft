@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Block, WORLD_BLOCKS, BlockType } from './world/blocks';
 import { Vector3 } from 'three';
+import { playItemDropSound } from './utils/audio';
 
 export interface DroppedItem {
   id: string;
@@ -499,6 +500,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       pickupDelay: 0.5, // 0.5 seconds pickup delay for player throws
     };
 
+    playItemDropSound();
+
     return {
       hotbar: newHotbar,
       droppedItems: [...state.droppedItems, newItem]
@@ -560,6 +563,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         count: dropCount,
         pickupDelay: 0.5,
       };
+      playItemDropSound();
       return {
         cursorItem: remaining > 0 ? { ...state.cursorItem, count: remaining } : null,
         droppedItems: [...state.droppedItems, newItem]
@@ -584,6 +588,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       count: dropCount,
       pickupDelay: 0.5,
     };
+    playItemDropSound();
 
     let updates: Partial<WorldState> = { droppedItems: [...state.droppedItems, newItem] };
     if (container === 'hotbar') updates.hotbar = arr;

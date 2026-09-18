@@ -111,6 +111,18 @@ export function TargetHighlight() {
     // Play crisp placement sound on successful placement
     playPlaceSound(slotToUse.type);
 
+    // Subtle edge particles around the newly placed block
+    window.dispatchEvent(
+      new CustomEvent('block-place-particles', {
+        detail: {
+          x: placeX,
+          y: placeY,
+          z: placeZ,
+          type: slotToUse.type,
+        },
+      })
+    );
+
     return true;
   };
 
@@ -262,17 +274,31 @@ export function TargetHighlight() {
           setIsMining(true);
         }
 
-        // Play subtle repeated digging sound at cadence (~220ms)
         const now = performance.now();
-        if (now - lastDigSoundTime.current >= 220) {
-          playDigSound(targetBlock.type);
-          lastDigSoundTime.current = now;
-        }
-
         const props = BLOCK_PROPERTIES[targetBlock.type];
         const breakTime = props.breakTime;
         const elapsed = (now - breakingState.current.startTime) / 1000;
         const progress = Math.min(elapsed / breakTime, 1);
+
+        // Play subtle digging sound and spawn face-aligned mining particles at cadence (~210ms)
+        if (now - lastDigSoundTime.current >= 210) {
+          playDigSound(targetBlock.type);
+          lastDigSoundTime.current = now;
+
+          // Dispatch mining particles on the targeted face with progress scaling
+          window.dispatchEvent(
+            new CustomEvent('block-mining-particles', {
+              detail: {
+                x: targetBlock.x,
+                y: targetBlock.y,
+                z: targetBlock.z,
+                normal: [targetNormal.x, targetNormal.y, targetNormal.z],
+                type: targetBlock.type,
+                progress,
+              },
+            })
+          );
+        }
 
         // Visual crack stages (0 to 9)
         const stage = Math.floor(progress * 10);

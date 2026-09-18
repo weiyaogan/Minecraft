@@ -3,6 +3,7 @@ import { useWorldStore } from '../store';
 import { BlockType } from '../world/blocks';
 import { X } from 'lucide-react';
 import { MiniBlock, StackQuantity } from './MiniBlock';
+import { playInventoryClickSound } from '../utils/audio';
 
 const INVENTORY_WIDTH = 352;
 const INVENTORY_HEIGHT = 332;
@@ -67,6 +68,7 @@ export function InventoryUI() {
       if (!isDraggingRef.current) return;
       if (draggedSlotsRef.current.length > 0) {
         distributeItems(draggedSlotsRef.current);
+        playInventoryClickSound();
       }
       setIsDragging(false);
       setDraggedSlots([]);
@@ -95,12 +97,14 @@ export function InventoryUI() {
       return;
     }
     clickSlot(container, index, event.button === 2, event.shiftKey);
+    playInventoryClickSound();
   };
 
   const handleTouchTap = (container: 'hotbar' | 'inventory' | 'offhand', index: number, event: React.TouchEvent) => {
     event.stopPropagation();
     // On touch, tap immediately performs clickSlot (places or picks up item)
     clickSlot(container, index, false, false);
+    playInventoryClickSound();
   };
 
   const handleMouseEnter = (container: 'hotbar' | 'inventory' | 'offhand', index: number) => {

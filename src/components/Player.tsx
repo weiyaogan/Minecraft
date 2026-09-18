@@ -5,6 +5,7 @@ import { useKeyboard } from '../hooks/useKeyboard';
 import { Vector3, Euler, PerspectiveCamera } from 'three';
 import { useWorldStore } from '../store';
 import { PlayerHand } from './PlayerHand';
+import { playJumpSound } from '../utils/audio';
 
 const GRAVITY = 30;
 // Max jump height = 1.25 blocks. v = sqrt(2 * g * h) = sqrt(2 * 30 * 1.25) = 8.66
@@ -157,6 +158,7 @@ export function Player() {
       if (inputJump && isGrounded) {
         velocityY.current = JUMP_FORCE;
         isGrounded = false;
+        playJumpSound();
       }
     }
 

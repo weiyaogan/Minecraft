@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { DroppedItem, useWorldStore } from '../store';
 import { grassTopTexture, dirtTexture, grassSideTexture, stoneTexture, bedrockTexture } from '../world/textures';
+import { playPickupSound } from '../utils/audio';
 
 interface Props {
   item: DroppedItem;
@@ -229,9 +230,11 @@ export function DroppedItemView({ item }: Props) {
         if (remaining === 0) {
           isDead.current = true;
           removeDroppedItem(item.id);
+          playPickupSound();
           return;
         } else if (remaining < item.count) {
           updateDroppedItem(item.id, remaining);
+          playPickupSound();
           isAbsorbing.current = false;
           visualMeshRef.current.scale.set(0.20, 0.20, 0.20);
         } else {
