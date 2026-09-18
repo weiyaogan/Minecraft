@@ -1,0 +1,6 @@
+{
+  "name": "Minecraft Java",
+  "description": "Foundation for a voxel sandbox game, starting with a basic 3D cube.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

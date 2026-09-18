@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minecraft Java</title>
+    <meta name="description" content="Foundation for a voxel sandbox game, starting with a basic 3D cube." />
+    <meta property="og:title" content="Minecraft Java" />
+    <meta property="og:description" content="Foundation for a voxel sandbox game, starting with a basic 3D cube." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        if (typeof window === 'undefined') return;
+        var safeFn = function() {
+          var fn = this.webkitRequestPointerLock || this.mozRequestPointerLock;
+          if (typeof fn === 'function') {
+            try { return fn.call(this); } catch(e) { console.warn(e); }
+          }
+        };
+        if (typeof Element !== 'undefined' && !Element.prototype.requestPointerLock) {
+          Element.prototype.requestPointerLock = safeFn;
+        }
+        if (typeof Document !== 'undefined' && !Document.prototype.requestPointerLock) {
+          Document.prototype.requestPointerLock = function() {
+            var el = document.body || document.documentElement;
+            return el && el.requestPointerLock && el.requestPointerLock();
+          };
+        }
+      })();
+    </script>
+    <meta property="og:image" content="https://bolt.new/static/og_default.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,33 @@
+import { TextureLoader, NearestFilter, SRGBColorSpace, CanvasTexture } from 'three';
+
+const loader = new TextureLoader();
+
+function createTexture(base64: string) {
+  const tex = loader.load("data:image/png;base64," + base64);
+  tex.magFilter = NearestFilter;
+  tex.minFilter = NearestFilter;
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
+
+const GRASS_TOP_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAB90lEQVR42j2Tx87qUAyEzyOz+em9915F750NAiQ2IPFgvvpGyl2EJCe2p3hw3W7Xfr+fdTody+fzuhqNhiUSCatWqzabzazf71u5XLZCoWClUsn2+735fD6r1Wrmer2eCheLhQ0GAxuNRpZMJnVPp9MadDwebbfbCQQw6hlWqVTMrddrTYrFYpbNZoVQLBat2WzqguF8PrfD4WDX61WNgUBAIM/n05zf77dcLieKMGi1WkJnYLvdFoNMJiMQviMPZGRQ41arlQqYzv1yudjtdhMLnt/vt/39/QmRpvP5bPF4XN/lAWjD4dCCwaB0plIpmYY34/FYlHmmAQDqeK7X65LnmDaZTGy73UoztClEEvTxhSGPx0OMkAgTT47jh4LpdCptDIlGo7bZbNRMoWce7KhnY952HNOgiqOn00koFNIEs/v9rnNWCjsMZ53kA/YOBD6+Xi+Zwo7xhCaMAxnaNIOIdobCBCAHOtMYhA8Mgw2FIH2/XwuFQtKNNzRi4n8P0AldIkyo+MAZiISKd55hFolEhI5+MoDRjj1TBB0OWCuU0RoOh3XGO3eaSCVMYUWfo5GYkkiQKGII5+R+uVxKCjXIZQNI4J3A6b9AEVo9iqSNkNCI0wSJC0Mx0ls5LBxUSR5T0cz+2YI3ADM/n4+yQTP+kBXqMf8fm1m5bOHB3EYAAAAASUVORK5CYII=";
+const GRASS_SIDE_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABX0lEQVQ4y3VSSUuDQQydXyN48OhCse4LVg+KFhcUaxXrMqJiFbwoIvKBIBQFexFcEHexrlAQix68+KOeJJCPNG0PmWSyvJdkxqXfYtj46MPaaw9mrxpZlp86MXlaC//Qhq2vIY4v3LUgdR3F/G0zps7r0Z+pwtJjO9z6ey8n7ufHsJMbwO7LIEaj1Zi7aULyooGBjn6mkSkkmISKKZ/AFu9b4Q4+J7jg5M9j5jLCDHRfyXWxpg63C3EcfieR/U2xbzhbg8RZHduODu89X0hWn7tDm4Q6IE3tkt6MR8IY2e7Yx9ggnd8b54D4dLIQSW4IIEnk1GC6UIOJTUKEjg7tDIKgKEHi2tZEzibrTnQ35fwMYJ1aS8u2WMecXYrdshU7itOMdmYBFr8eRXblys2lGejp9Aj6mfkjWacFqSTSVdEIJOmRjpLFyRiyF/1azibpDev5LVEJgP0DsqRK7y8E/2kQKqQTbHIJAAAAAElFTkSuQmCC";
+const DIRT_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA0UlEQVR42nWSsQ1CMQxEvQ4rINFR0SOBxAgpaRgA/Q3YhelAF+mi9+/nF1YS2zn7zq7v+/H7tEu31/XYbea7nw6ruM/SRYlM0HtZluEzIO+KycporsI3qzGHeSW01tpwsJukkl0MAAcV0GdyJ6AKpa/cVlZyq9SG9yFicpR4TKDipOmzMjnH525m/g6QTp5uOT8zNt2D5J68SaVyPORsYPtJxVrVjBcraHSkwDH3TUxnguyZu1pRkD1v541wpjHb0MokKkz+WWgDkDtgkfbm7wJ/9oUoq3qXqFkAAAAASUVORK5CYII=";
+const STONE_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAnklEQVQ4y4VTQRIAMQTzXA9w7xM8uXti0jS6B8OYEiK1zNxoa60dETsiOnb3I4dmFWABPypz925Wbw1REImRp8Y9Aa5QnvM4bZlhZ0YrzzxhjTGiMl6pfGaeEzAKxuMVsDsjvNbrBqwBReC0Yp9R8aCKlejM3S8h8UossOOMarTX2LyuKYLUn2Apl7fpE03MY+6a4CWmiUj7U5/iBME+eeR3wyunqoUAAAAASUVORK5CYII=";
+
+// Global static textures (created once, avoids React render loop memory leaks)
+export const grassTopTexture = createTexture(GRASS_TOP_B64);
+export const grassSideTexture = createTexture(GRASS_SIDE_B64);
+export const dirtTexture = createTexture(DIRT_B64);
+export const stoneTexture = createTexture(STONE_B64);
+
+const BEDROCK_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABoElEQVR4AXXBoW0kQRRF0Tu7DY0cgcGDjRoZ/hBKE0MFUCFsCB1ABdEBGPwIjAo+YGxomXunJLc0snbPubTWvmxzTxIRwdRaY993MhPb3JPEwo0kIoJ/WdeVKSKICFprlFKYbLNwcxwHtpnGGKzryqnWSu8dSUylFCKCzEQSCzf7vpOZTJI4joNSChFBZiIJ25xsM0li4VtE0HtnWtcV29jmVGvlp9Yai21sIwlJTLY5SeI4DjKTyTbTGINSCkutlSkzeXh44PPzk6nWypSZlFI41Vo5tda4tNa++GabfxljsK4r9yQxLdxEBNNxHOz7Tu8dSZxqrfzPwk3vnWldV3rvTLaRxHEcnGxzqrWSmfx+fn7+8/j4yPV65fX1lanWyrZtvLy88P7+zrIsXK9Xtm1j2zY+Pj54e3tjujw9PX2VUjjZRhKniGDKTE4RwdRaYymlYJt7tjlFBJNtTraZSin84qbWylRrZYyBJCQx9d7pvTPGYJKEJGqtRASX1toX32zzkySmiGDKTGwzSWKxzb0xBvu+M2Ump8zENidJTH8B+4bTnJxNiA4AAAAASUVORK5CYII=";
+export const bedrockTexture = createTexture(BEDROCK_B64);
+
+export const TEXTURE_URLS = {
+  bedrock: "data:image/png;base64," + BEDROCK_B64,
+  grassTop: "data:image/png;base64," + GRASS_TOP_B64,
+  grassSide: "data:image/png;base64," + GRASS_SIDE_B64,
+  dirt: "data:image/png;base64," + DIRT_B64,
+  stone: "data:image/png;base64," + STONE_B64,
+};
