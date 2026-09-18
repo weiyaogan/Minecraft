@@ -111,18 +111,6 @@ export function TargetHighlight() {
     // Play crisp placement sound on successful placement
     playPlaceSound(slotToUse.type);
 
-    // Subtle edge particles around the newly placed block
-    window.dispatchEvent(
-      new CustomEvent('block-place-particles', {
-        detail: {
-          x: placeX,
-          y: placeY,
-          z: placeZ,
-          type: slotToUse.type,
-        },
-      })
-    );
-
     return true;
   };
 

@@ -155,56 +155,12 @@ export function BreakParticles() {
       particlesRef.current = [...particlesRef.current, ...newParticles].slice(-MAX_PARTICLES);
     };
 
-    // 3. PLACEMENT PARTICLES (subtle puff on edges when block is placed)
-    const handlePlace = (e: Event) => {
-      const customEvent = e as CustomEvent<{
-        x: number;
-        y: number;
-        z: number;
-        type: BlockType;
-      }>;
-      const { x, y, z, type } = customEvent.detail;
-
-      // 7 subtle perimeter particles
-      const count = 7;
-      const newParticles: Particle[] = [];
-
-      for (let i = 0; i < count; i++) {
-        const hex = getBlockColor(type);
-        const maxLife = 0.18 + Math.random() * 0.10; // 0.18s to 0.28s
-
-        // Spawn around edges / perimeter of the placed block
-        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-        const radius = 0.52 + Math.random() * 0.1;
-        const px = x + Math.cos(angle) * radius;
-        const py = y + (Math.random() - 0.5) * 0.5;
-        const pz = z + Math.sin(angle) * radius;
-
-        newParticles.push({
-          position: new Vector3(px, py, pz),
-          velocity: new Vector3(
-            Math.cos(angle) * 0.8,
-            Math.random() * 0.8 + 0.3,
-            Math.sin(angle) * 0.8
-          ),
-          color: new Color(hex),
-          life: maxLife,
-          maxLife: maxLife,
-          scale: 0.5 + Math.random() * 0.3,
-        });
-      }
-
-      particlesRef.current = [...particlesRef.current, ...newParticles].slice(-MAX_PARTICLES);
-    };
-
     window.addEventListener('block-mining-particles', handleMining);
     window.addEventListener('block-break-particles', handleBreak);
-    window.addEventListener('block-place-particles', handlePlace);
 
     return () => {
       window.removeEventListener('block-mining-particles', handleMining);
       window.removeEventListener('block-break-particles', handleBreak);
-      window.removeEventListener('block-place-particles', handlePlace);
     };
   }, []);
 

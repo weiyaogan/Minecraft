@@ -251,7 +251,7 @@ async function runTests() {
   const afterAdd = useWorldStore.getState().blocks;
   const addedBlock = afterAdd.find(b => b.x === 2 && b.type === 'sand');
   assert(afterAdd.length === 2 && addedBlock !== undefined, 'addBlock works correctly');
-  assert(typeof addedBlock?.createdAt === 'number', 'Placement attaches createdAt timestamp for subtle scale animation');
+  assert(addedBlock.x === 2 && addedBlock.type === 'sand', 'Placement instantly adds block to world coordinates');
 
   // Look away test: raycast pointing in empty space returns null target
   const targetLookAway = findTargetBlock(new Vector3(0, 5, -3), new Vector3(0, 1, 0), remainingBlocks);

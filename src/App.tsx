@@ -165,7 +165,6 @@ export default function App() {
             key={`${block.x}_${block.y}_${block.z}`} 
             type={block.type} 
             position={[block.x, block.y, block.z]}
-            createdAt={block.createdAt}
           />
         ))}
 

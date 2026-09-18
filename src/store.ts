@@ -135,7 +135,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     if (state.blocks.some(b => b.x === x && b.y === y && b.z === z)) {
       return state;
     }
-    return { blocks: [...state.blocks, { x, y, z, type, createdAt: performance.now() }] };
+    return { blocks: [...state.blocks, { x, y, z, type }] };
   }),
   isMining: false,
   setIsMining: (isMining) => set({ isMining }),
