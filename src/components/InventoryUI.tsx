@@ -1,70 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useWorldStore } from '../store';
 import { BlockType } from '../world/blocks';
-import { TEXTURE_URLS } from '../world/textures';
 import { X } from 'lucide-react';
+import { MiniBlock, StackQuantity } from './MiniBlock';
 
 const INVENTORY_WIDTH = 352;
 const INVENTORY_HEIGHT = 332;
 const SLOT_SIZE = 34;
 const SLOT_GAP = 2;
 const SLOT_STEP = SLOT_SIZE + SLOT_GAP;
-const INVENTORY_ITEM_SIZE = 10.5;
-
-const getFaceConfigs = (type: BlockType) => {
-  if (type === 'grass') {
-    const side = { backgroundImage: `url(${TEXTURE_URLS.grassSide})` };
-    return {
-      top: { backgroundImage: `url(${TEXTURE_URLS.grassTop})`, backgroundColor: '#55aa55', backgroundBlendMode: 'multiply' as const },
-      bottom: { backgroundImage: `url(${TEXTURE_URLS.dirt})` },
-      front: side,
-      back: side,
-      left: side,
-      right: side,
-    };
-  }
-
-  if (type === 'sand') {
-    const sandFace = { backgroundImage: `url(${TEXTURE_URLS.dirt})`, backgroundColor: '#e3dbb0', backgroundBlendMode: 'multiply' as const };
-    return { top: sandFace, bottom: sandFace, front: sandFace, back: sandFace, left: sandFace, right: sandFace };
-  }
-
-  if (type === 'bedrock') {
-    const bedrockFace = { backgroundImage: `url(${TEXTURE_URLS.bedrock})` };
-    return { top: bedrockFace, bottom: bedrockFace, front: bedrockFace, back: bedrockFace, left: bedrockFace, right: bedrockFace };
-  }
-
-  if (type === 'dirt') {
-    const dirtFace = { backgroundImage: `url(${TEXTURE_URLS.dirt})` };
-    return { top: dirtFace, bottom: dirtFace, front: dirtFace, back: dirtFace, left: dirtFace, right: dirtFace };
-  }
-
-  const stoneFace = { backgroundImage: `url(${TEXTURE_URLS.stone})` };
-  return { top: stoneFace, bottom: stoneFace, front: stoneFace, back: stoneFace, left: stoneFace, right: stoneFace };
-};
-
-export const MiniBlock = ({ type, cubeSize }: { type: BlockType; cubeSize?: number }) => {
-  const faces = getFaceConfigs(type);
-  return (
-    <div
-      className="isometric-cube pointer-events-none"
-      style={cubeSize ? { '--cube-size': `${cubeSize}px` } as React.CSSProperties : undefined}
-    >
-      <div className="cube-face cube-top" style={{ ...faces.top, filter: 'brightness(1)' }} />
-      <div className="cube-face cube-left" style={{ ...faces.left, filter: 'brightness(0.8)' }} />
-      <div className="cube-face cube-front" style={{ ...faces.front, filter: 'brightness(0.6)' }} />
-      <div className="cube-face cube-right" style={{ ...faces.right, filter: 'brightness(0.5)' }} />
-      <div className="cube-face cube-back" style={{ ...faces.back, filter: 'brightness(0.7)' }} />
-      <div className="cube-face cube-bottom" style={{ ...faces.bottom, filter: 'brightness(0.4)' }} />
-    </div>
-  );
-};
-
-const countStyle = {
-  textShadow: '2px 2px 0 #3f3f3f, -2px -2px 0 #3f3f3f, 2px -2px 0 #3f3f3f, -2px 2px 0 #3f3f3f, 2px 0 0 #3f3f3f, -2px 0 0 #3f3f3f, 0 2px 0 #3f3f3f, 0 -2px 0 #3f3f3f',
-  fontFamily: 'monospace, sans-serif',
-  lineHeight: '1',
-};
+export const INVENTORY_ITEM_SIZE = 17;
 
 export function InventoryUI() {
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
@@ -189,12 +134,11 @@ export function InventoryUI() {
         </div>
       )}
       {slot.type && slot.count > 1 && (
-        <span 
-          className="absolute bottom-0.5 right-0.5 z-10 text-white font-bold tracking-tighter text-xs pointer-events-none select-none" 
-          style={countStyle}
-        >
-          {slot.count}
-        </span>
+        <StackQuantity
+          count={slot.count}
+          fontSize={13}
+          style={{ bottom: '1px', right: '1px' }}
+        />
       )}
       {isDragging && draggedSlots.some(item => item.container === container && item.index === index) && (
         <div className="absolute inset-0 bg-white/25 pointer-events-none" />
@@ -265,7 +209,7 @@ export function InventoryUI() {
         </div>
       </div>
 
-      {cursorItem && (
+      {cursorItem && cursorItem.type && (
         <div 
           className="fixed pointer-events-none z-[100]" 
           style={{ 
@@ -275,20 +219,12 @@ export function InventoryUI() {
           }}
         >
           <div className="relative flex items-center justify-center">
-            <MiniBlock type={cursorItem.type!} cubeSize={INVENTORY_ITEM_SIZE * 1.5 * scale} />
-            {cursorItem.count > 1 && (
-              <span 
-                className="absolute text-white font-bold tracking-tighter pointer-events-none select-none" 
-                style={{ 
-                  ...countStyle, 
-                  bottom: '-2px', 
-                  right: '-2px', 
-                  fontSize: `${12 * scale}px` 
-                }}
-              >
-                {cursorItem.count}
-              </span>
-            )}
+            <MiniBlock type={cursorItem.type} cubeSize={INVENTORY_ITEM_SIZE * 1.5 * scale} />
+            <StackQuantity
+              count={cursorItem.count}
+              fontSize={13 * 1.5 * scale}
+              style={{ bottom: '-1px', right: '-1px' }}
+            />
           </div>
         </div>
       )}
