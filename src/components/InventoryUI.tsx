@@ -9,6 +9,7 @@ const INVENTORY_HEIGHT = 332;
 const SLOT_SIZE = 34;
 const SLOT_GAP = 2;
 const SLOT_STEP = SLOT_SIZE + SLOT_GAP;
+const INVENTORY_ITEM_SIZE = 10.5;
 
 const getFaceConfigs = (type: BlockType) => {
   if (type === 'grass') {
@@ -62,6 +63,7 @@ export const MiniBlock = ({ type, cubeSize }: { type: BlockType; cubeSize?: numb
 const countStyle = {
   textShadow: '2px 2px 0 #3f3f3f, -2px -2px 0 #3f3f3f, 2px -2px 0 #3f3f3f, -2px 2px 0 #3f3f3f, 2px 0 0 #3f3f3f, -2px 0 0 #3f3f3f, 0 2px 0 #3f3f3f, 0 -2px 0 #3f3f3f',
   fontFamily: 'monospace, sans-serif',
+  lineHeight: '1',
 };
 
 export function InventoryUI() {
@@ -182,12 +184,15 @@ export function InventoryUI() {
       style={{ left, top, width: SLOT_SIZE, height: SLOT_SIZE }}
     >
       {slot.type && (
-        <div>
-          <MiniBlock type={slot.type} cubeSize={container === 'inventory' ? 12 : undefined} />
+        <div className="flex items-center justify-center pointer-events-none">
+          <MiniBlock type={slot.type} cubeSize={INVENTORY_ITEM_SIZE} />
         </div>
       )}
       {slot.type && slot.count > 1 && (
-        <span className="absolute bottom-0 right-0 z-10 text-white font-bold tracking-tighter text-sm pointer-events-none" style={countStyle}>
+        <span 
+          className="absolute bottom-0.5 right-0.5 z-10 text-white font-bold tracking-tighter text-xs pointer-events-none select-none" 
+          style={countStyle}
+        >
           {slot.count}
         </span>
       )}
@@ -261,11 +266,26 @@ export function InventoryUI() {
       </div>
 
       {cursorItem && (
-        <div className="fixed pointer-events-none z-[100]" style={{ left: mousePos.x, top: mousePos.y, transform: 'translate(-50%, -50%)' }}>
-          <div style={{ '--cube-size': `${SLOT_SIZE * 0.7}px`, position: 'relative' } as React.CSSProperties}>
-            <MiniBlock type={cursorItem.type!} />
+        <div 
+          className="fixed pointer-events-none z-[100]" 
+          style={{ 
+            left: mousePos.x, 
+            top: mousePos.y, 
+            transform: 'translate(-50%, -50%)' 
+          }}
+        >
+          <div className="relative flex items-center justify-center">
+            <MiniBlock type={cursorItem.type!} cubeSize={INVENTORY_ITEM_SIZE * 1.5 * scale} />
             {cursorItem.count > 1 && (
-              <span className="absolute bottom-0 right-0 text-white font-bold tracking-tighter text-sm" style={countStyle}>
+              <span 
+                className="absolute text-white font-bold tracking-tighter pointer-events-none select-none" 
+                style={{ 
+                  ...countStyle, 
+                  bottom: '-2px', 
+                  right: '-2px', 
+                  fontSize: `${12 * scale}px` 
+                }}
+              >
                 {cursorItem.count}
               </span>
             )}
