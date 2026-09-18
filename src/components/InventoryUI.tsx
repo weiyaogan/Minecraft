@@ -74,6 +74,7 @@ export function InventoryUI() {
   const clickSlot = useWorldStore(state => state.clickSlot);
   const distributeItems = useWorldStore(state => state.distributeItems);
   const setHoveredSlot = useWorldStore(state => state.setHoveredSlot);
+  const isMobile = useWorldStore(state => state.isMobile);
 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -221,20 +222,22 @@ export function InventoryUI() {
           transformOrigin: 'center center'
         }}
       >
-        {/* Close Button at top-right */}
-        <button
-          id="inventory-close-button"
-          onClick={() => setInventoryOpen(false)}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-            setInventoryOpen(false);
-          }}
-          className="absolute -top-10 right-0 px-3 py-1 bg-[#8b8b8b] active:bg-[#6e6e6e] text-white flex items-center gap-1 border-2 border-t-[#ffffff] border-l-[#ffffff] border-b-[#333333] border-r-[#333333] cursor-pointer shadow-lg font-mono text-sm font-bold select-none z-10"
-          title="Close (Esc / E)"
-        >
-          <X className="w-4 h-4" />
-          <span>CLOSE</span>
-        </button>
+        {/* Close Button at top-right (mobile only) */}
+        {isMobile && (
+          <button
+            id="inventory-close-button"
+            onClick={() => setInventoryOpen(false)}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              setInventoryOpen(false);
+            }}
+            className="absolute -top-10 right-0 px-3 py-1 bg-[#8b8b8b] active:bg-[#6e6e6e] text-white flex items-center gap-1 border-2 border-t-[#ffffff] border-l-[#ffffff] border-b-[#333333] border-r-[#333333] cursor-pointer shadow-lg font-mono text-sm font-bold select-none z-10"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+            <span>CLOSE</span>
+          </button>
+        )}
 
         <div
           className="relative shrink-0 origin-top-left"

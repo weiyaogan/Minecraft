@@ -129,6 +129,7 @@ export function Hotbar() {
   const selectedHotbarSlot = useWorldStore(state => state.selectedHotbarSlot);
   const setSelectedHotbarSlot = useWorldStore(state => state.setSelectedHotbarSlot);
   const offhand = useWorldStore(state => state.offhand);
+  const isMobile = useWorldStore(state => state.isMobile);
 
   const [labelVisible, setLabelVisible] = useState(false);
   const selectedItem = hotbar[selectedHotbarSlot];
@@ -276,23 +277,25 @@ export function Hotbar() {
       })}
       </div>
 
-      {/* Classic MCPE Inventory button next to hotbar */}
-      <button
-        id="hotbar-inventory-btn"
-        data-mobile-control="true"
-        onClick={() => useWorldStore.getState().setInventoryOpen(true)}
-        className="pointer-events-auto flex items-center justify-center bg-[#8b8b8b] active:bg-[#6e6e6e] text-white font-bold cursor-pointer select-none transition-colors"
-        style={{
-          width: '44px',
-          height: '44px',
-          border: '2px solid #222222',
-          boxShadow: 'inset 2px 2px 0px 0px #ffffff, inset -2px -2px 0px 0px #373737',
-        }}
-        title="Open Inventory (...)"
-        aria-label="Open Inventory"
-      >
-        <span className="text-xl tracking-tighter leading-none select-none font-mono">•••</span>
-      </button>
+      {/* Classic MCPE Inventory button next to hotbar (mobile only) */}
+      {isMobile && (
+        <button
+          id="hotbar-inventory-btn"
+          data-mobile-control="true"
+          onClick={() => useWorldStore.getState().setInventoryOpen(true)}
+          className="pointer-events-auto flex items-center justify-center bg-[#8b8b8b] active:bg-[#6e6e6e] text-white font-bold cursor-pointer select-none transition-colors"
+          style={{
+            width: '44px',
+            height: '44px',
+            border: '2px solid #222222',
+            boxShadow: 'inset 2px 2px 0px 0px #ffffff, inset -2px -2px 0px 0px #373737',
+          }}
+          title="Open Inventory (...)"
+          aria-label="Open Inventory"
+        >
+          <span className="text-xl tracking-tighter leading-none select-none font-mono">•••</span>
+        </button>
+      )}
       </div>
     </>
   );
