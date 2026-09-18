@@ -70,6 +70,20 @@ export function Player() {
   
   const setPlayerFeetPosition = useWorldStore(state => state.setPlayerFeetPosition);
   const setPlayerHeight = useWorldStore(state => state.setPlayerHeight);
+  const respawnTrigger = useWorldStore(state => state.respawnTrigger);
+  const isMobile = useWorldStore(state => state.isMobile);
+  const isPaused = useWorldStore(state => state.isPaused);
+  const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
+  const virtualInputs = useWorldStore(state => state.virtualInputs);
+
+  // Respawn effect
+  useEffect(() => {
+    if (respawnTrigger > 0) {
+      feetPosition.current.set(0, 5, 0);
+      velocityY.current = 0;
+      camera.position.set(0, 5 + EYE_HEIGHT, 0);
+    }
+  }, [respawnTrigger, camera]);
 
   // Initialize camera position once
   useEffect(() => {
@@ -81,8 +95,19 @@ export function Player() {
     const pos = feetPosition.current;
     const EPSILON = 0.001;
 
+    // Movement allowed if locked (desktop) or active playing without pause/inventory (mobile)
+    const canControl = Boolean(controlsRef.current?.isLocked || (isMobile && !isPaused && !isInventoryOpen));
+
+    const inputForward = keys.forward || virtualInputs.forward;
+    const inputBackward = keys.backward || virtualInputs.backward;
+    const inputLeft = keys.left || virtualInputs.left;
+    const inputRight = keys.right || virtualInputs.right;
+    const inputJump = keys.jump || virtualInputs.jump;
+    const inputSprint = keys.sprint || virtualInputs.sprint;
+    const inputSneak = keys.shift || virtualInputs.sneak;
+
     // --- 1. SNEAK & HEIGHT LOGIC ---
-    let wantsToSneak = keys.shift;
+    let wantsToSneak = inputSneak;
     
     // If not actively holding sneak, check if there is enough ceiling clearance to stand up
     if (!wantsToSneak) {
@@ -127,8 +152,8 @@ export function Player() {
     }
 
     // --- 3. JUMP LOGIC ---
-    if (controlsRef.current && controlsRef.current.isLocked) {
-      if (keys.jump && isGrounded) {
+    if (canControl) {
+      if (inputJump && isGrounded) {
         velocityY.current = JUMP_FORCE;
         isGrounded = false;
       }
@@ -164,14 +189,20 @@ export function Player() {
     }
 
     // --- 4.5 SPRINT LOGIC ---
-    if (wantsToSneak || !keys.forward || useWorldStore.getState().isInventoryOpen || !controlsRef.current?.isLocked) {
+    if (wantsToSneak || !inputForward || isInventoryOpen || isPaused || !canControl) {
       keys.sprint = false;
       isSprinting.current = false;
-    } else if (keys.sprint && isGrounded && !isSprinting.current) {
+      if (virtualInputs.sprint) {
+        useWorldStore.getState().setVirtualInput('sprint', false);
+      }
+    } else if (inputSprint && isGrounded && !isSprinting.current) {
       isSprinting.current = true;
-    } else if (keys.sprint && !isGrounded && !isSprinting.current) {
+    } else if (inputSprint && !isGrounded && !isSprinting.current) {
       // Cannot start sprinting in mid-air
       keys.sprint = false;
+      if (virtualInputs.sprint) {
+        useWorldStore.getState().setVirtualInput('sprint', false);
+      }
     }
 
     const pCam = camera as PerspectiveCamera;
@@ -186,8 +217,11 @@ export function Player() {
     let dz = 0;
     const speed = wantsToSneak ? SNEAK_SPEED : (isSprinting.current ? SPRINT_SPEED : NORMAL_SPEED);
     
-    if (controlsRef.current && controlsRef.current.isLocked) {
-      const { forward, backward, left, right } = keys;
+    if (canControl) {
+      const forward = inputForward;
+      const backward = inputBackward;
+      const left = inputLeft;
+      const right = inputRight;
       
       const euler = new Euler(0, 0, 0, 'YXZ');
       euler.setFromQuaternion(camera.quaternion);
@@ -281,6 +315,7 @@ export function Player() {
       if ((blockedX && primaryX) || (blockedZ && !primaryX)) {
         isSprinting.current = false;
         keys.sprint = false;
+        useWorldStore.getState().setVirtualInput('sprint', false);
       }
     }
 

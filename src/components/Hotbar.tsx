@@ -188,17 +188,17 @@ export function Hotbar() {
       >
         {selectedItem?.type === 'grass' ? 'Grass Block' : selectedItem?.type}
       </div>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-30">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex items-end gap-2 max-w-full px-2 scale-90 sm:scale-100 origin-bottom">
         {offhand?.type && (
           <div
-            className="absolute"
+            onClick={() => useWorldStore.getState().swapOffhand()}
+            className="pointer-events-auto cursor-pointer"
             style={{
-              left: '-60px',
-              bottom: '0',
               backgroundColor: '#8b8b8b',
               border: '2px solid #222222',
               padding: '2px'
             }}
+            title="Offhand Item (Click to swap)"
           >
             <div 
               className="relative flex items-center justify-center bg-[#8b8b8b]"
@@ -228,21 +228,22 @@ export function Hotbar() {
           </div>
         )}
       <div 
-      className="flex"
-      style={{
-        backgroundColor: '#8b8b8b',
-        border: '2px solid #222222',
-        padding: '2px',
-        gap: '2px'
-      }}
-    >
+        className="flex"
+        style={{
+          backgroundColor: '#8b8b8b',
+          border: '2px solid #222222',
+          padding: '2px',
+          gap: '2px'
+        }}
+      >
       {hotbar.map((slot, index) => {
         const isSelected = index === selectedHotbarSlot;
         
         return (
           <div 
             key={index} 
-            className="relative flex items-center justify-center bg-[#8b8b8b]"
+            onClick={() => setSelectedHotbarSlot(index)}
+            className="relative flex items-center justify-center bg-[#8b8b8b] pointer-events-auto cursor-pointer select-none"
             style={{
               width: '40px',
               height: '40px',
@@ -257,7 +258,7 @@ export function Hotbar() {
             
             {slot.count > 1 && (
               <span 
-                className="absolute text-white font-bold tracking-tighter"
+                className="absolute text-white font-bold tracking-tighter pointer-events-none"
                 style={{ 
                   bottom: '-2px',
                   right: '2px',
@@ -274,6 +275,24 @@ export function Hotbar() {
         );
       })}
       </div>
+
+      {/* Classic MCPE Inventory button next to hotbar */}
+      <button
+        id="hotbar-inventory-btn"
+        data-mobile-control="true"
+        onClick={() => useWorldStore.getState().setInventoryOpen(true)}
+        className="pointer-events-auto flex items-center justify-center bg-[#8b8b8b] active:bg-[#6e6e6e] text-white font-bold cursor-pointer select-none transition-colors"
+        style={{
+          width: '44px',
+          height: '44px',
+          border: '2px solid #222222',
+          boxShadow: 'inset 2px 2px 0px 0px #ffffff, inset -2px -2px 0px 0px #373737',
+        }}
+        title="Open Inventory (...)"
+        aria-label="Open Inventory"
+      >
+        <span className="text-xl tracking-tighter leading-none select-none font-mono">•••</span>
+      </button>
       </div>
     </>
   );

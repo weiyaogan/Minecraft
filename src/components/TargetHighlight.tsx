@@ -193,17 +193,23 @@ export function TargetHighlight() {
   useFrame(() => {
     if (!highlightRef.current) return;
     
-    const isInvOpen = useWorldStore.getState().isInventoryOpen;
-    if (isInvOpen) {
+    const storeState = useWorldStore.getState();
+    const isInvOpen = storeState.isInventoryOpen;
+    const isPaused = storeState.isPaused;
+    if (isInvOpen || isPaused) {
       highlightRef.current.visible = false;
       if (damageRef.current) damageRef.current.visible = false;
-      // Reset mining state if we opened inventory while mining
+      // Reset mining state if we paused or opened inventory while mining
       if (isMiningRef.current) {
         isMiningRef.current = false;
         setIsMining(false);
       }
       return;
     }
+    
+    const isAllowed = Boolean(document.pointerLockElement || (storeState.isMobile && !isPaused && !isInvOpen));
+    const isRightActive = Boolean((mouseState.current.isRightDown && document.pointerLockElement) || (storeState.virtualInputs.place && isAllowed));
+    const isLeftActive = Boolean((mouseState.current.isLeftDown && document.pointerLockElement) || (storeState.virtualInputs.mine && isAllowed));
     
     const origin = camera.position;
     const direction = new Vector3();
@@ -254,8 +260,8 @@ export function TargetHighlight() {
       hitPosition: targetHitPoint
     };
 
-    // Continuous block placing when right-click is held (200ms delay between placements)
-    if (mouseState.current.isRightDown && document.pointerLockElement) {
+    // Continuous block placing when right-click / place is held (200ms delay between placements)
+    if (isRightActive && isAllowed) {
       const now = performance.now();
       if (now - lastPlaceTime.current >= 200) {
         if (attemptPlaceBlock()) {
@@ -274,7 +280,7 @@ export function TargetHighlight() {
 
       const currentBlockKey = `${targetBlock.x},${targetBlock.y},${targetBlock.z}`;
       
-      if (mouseState.current.isLeftDown) {
+      if (isLeftActive && isAllowed) {
         if (!isMiningRef.current) {
           isMiningRef.current = true;
           setIsMining(true);

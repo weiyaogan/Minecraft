@@ -86,7 +86,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       ref,
       () => ({
         get isLocked() {
-          return isLockedRef.current;
+          const store = useWorldStore.getState();
+          return isLockedRef.current || (store.isMobile && !store.isPaused && !store.isInventoryOpen);
         },
         lock,
         unlock,
@@ -97,6 +98,27 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
 
     useEffect(() => {
       if (!enabled) return;
+
+      const handleMobileCameraLook = (e: Event) => {
+        const customEvent = e as CustomEvent<{ deltaX: number; deltaY: number }>;
+        if (!customEvent.detail) return;
+        const { deltaX, deltaY } = customEvent.detail;
+
+        const euler = new Euler(0, 0, 0, 'YXZ');
+        euler.setFromQuaternion(camera.quaternion);
+
+        const touchSensitivity = 0.0035;
+        euler.y -= deltaX * touchSensitivity;
+        euler.x -= deltaY * touchSensitivity;
+
+        const maxPitch = Math.PI / 2 - 0.01;
+        euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+
+        camera.quaternion.setFromEuler(euler);
+        onChange?.();
+      };
+
+      window.addEventListener('mobile-camera-look', handleMobileCameraLook);
 
       const handlePointerLockChange = () => {
         const lockEl = getPointerLockElement();
@@ -247,6 +269,7 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
         document.removeEventListener('mozpointerlockerror', handlePointerLockError);
 
         document.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mobile-camera-look', handleMobileCameraLook);
 
         if (canvasEl) {
           canvasEl.removeEventListener('touchstart', handleTouchStart);

@@ -26,6 +26,18 @@ export interface FallingBlock {
 const emptySlot = (): InventorySlot => ({ type: null, count: 0 });
 const createEmptySlots = (n: number): InventorySlot[] => Array.from({ length: n }, emptySlot);
 
+export interface VirtualInputs {
+  forward: boolean;
+  backward: boolean;
+  left: boolean;
+  right: boolean;
+  jump: boolean;
+  sneak: boolean;
+  sprint: boolean;
+  mine: boolean;
+  place: boolean;
+}
+
 interface WorldState {
   blocks: Block[];
   fallingBlocks: FallingBlock[];
@@ -49,6 +61,18 @@ interface WorldState {
   setInventoryOpen: (isOpen: boolean) => void;
   setCursorItem: (item: InventorySlot | null) => void;
   setHoveredSlot: (slot: { container: 'hotbar'|'inventory'|'offhand', index: number } | null) => void;
+  
+  isPaused: boolean;
+  setPaused: (isPaused: boolean) => void;
+  isMobile: boolean;
+  setIsMobile: (isMobile: boolean) => void;
+  virtualInputs: VirtualInputs;
+  setVirtualInput: (key: keyof VirtualInputs, value: boolean) => void;
+  toggleVirtualInput: (key: keyof VirtualInputs) => void;
+  resetVirtualInputs: () => void;
+  
+  respawnTrigger: number;
+  respawnPlayer: () => void;
   
   addInventory: (type: BlockType, count: number) => number;
   removeInventory: (slot: number, count: number) => void;
@@ -75,6 +99,18 @@ interface WorldState {
   setPlayerHeight: (height: number) => void;
 }
 
+const defaultVirtualInputs: VirtualInputs = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  jump: false,
+  sneak: false,
+  sprint: false,
+  mine: false,
+  place: false,
+};
+
 export const useWorldStore = create<WorldState>((set, get) => ({
   blocks: WORLD_BLOCKS,
   fallingBlocks: [],
@@ -91,6 +127,37 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   }),
   isMining: false,
   setIsMining: (isMining) => set({ isMining }),
+  
+  isPaused: false,
+  setPaused: (isPaused) => set((state) => {
+    if (isPaused) {
+      return { isPaused, virtualInputs: { ...defaultVirtualInputs } };
+    }
+    return { isPaused };
+  }),
+  
+  isMobile: typeof window !== 'undefined' && (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  ),
+  setIsMobile: (isMobile) => set({ isMobile }),
+  
+  virtualInputs: { ...defaultVirtualInputs },
+  setVirtualInput: (key, value) => set((state) => ({
+    virtualInputs: { ...state.virtualInputs, [key]: value }
+  })),
+  toggleVirtualInput: (key) => set((state) => ({
+    virtualInputs: { ...state.virtualInputs, [key]: !state.virtualInputs[key] }
+  })),
+  resetVirtualInputs: () => set({ virtualInputs: { ...defaultVirtualInputs } }),
+  
+  respawnTrigger: 0,
+  respawnPlayer: () => set((state) => ({
+    respawnTrigger: state.respawnTrigger + 1,
+    playerFeetPosition: new Vector3(0, 5, 0),
+    isPaused: false,
+  })),
   
   hotbar: [
     { type: 'grass', count: 64 },

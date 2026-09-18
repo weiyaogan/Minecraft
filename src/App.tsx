@@ -14,14 +14,23 @@ import { DroppedItemView } from './components/DroppedItemView';
 import { PhysicsEngine } from './components/PhysicsEngine';
 import { InventoryUI } from './components/InventoryUI';
 import { InputManager } from './components/InputManager';
+import { MobileControls } from './components/MobileControls';
+import { PauseMenu } from './components/PauseMenu';
+import { Smartphone, Monitor } from 'lucide-react';
 
 export default function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [canLock, setCanLock] = useState(true);
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
+
   const blocks = useWorldStore(state => state.blocks);
   const fallingBlocks = useWorldStore(state => state.fallingBlocks);
   const droppedItems = useWorldStore(state => state.droppedItems);
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
+  const isPaused = useWorldStore(state => state.isPaused);
+  const setPaused = useWorldStore(state => state.setPaused);
+  const isMobile = useWorldStore(state => state.isMobile);
+  const setIsMobile = useWorldStore(state => state.setIsMobile);
 
   useEffect(() => {
     const handlePointerLockChange = () => {
@@ -53,6 +62,15 @@ export default function App() {
 
   const handleStartPlay = () => {
     if (!canLock) return;
+    setHasStartedPlaying(true);
+    setPaused(false);
+
+    if (isMobile) {
+      // Mobile does not require desktop pointer lock
+      setIsLocked(true);
+      return;
+    }
+
     const canvas = document.querySelector('canvas');
     const target = canvas || document.body;
     const requestFn =
@@ -74,28 +92,81 @@ export default function App() {
     }
   };
 
+  const showStartScreen = !hasStartedPlaying;
+  const isPlayingActive = hasStartedPlaying && !isPaused && !isInventoryOpen;
+
   return (
-    <div className="w-full h-screen bg-sky-200 relative">
-      {!isLocked && !isInventoryOpen && (
+    <div className="w-full h-screen bg-sky-200 relative overflow-hidden select-none">
+      {/* Initial Start Splash Screen */}
+      {showStartScreen && (
         <div
           onClick={handleStartPlay}
-          className={`absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 text-white transition-opacity duration-300 select-none ${
+          className={`absolute inset-0 flex flex-col items-center justify-center bg-black/75 z-40 text-white transition-opacity duration-300 p-4 ${
             canLock ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
           }`}
         >
-          <h1 className="text-4xl font-bold mb-4">Minecraft Java</h1>
-          {canLock ? (
-            <p className="mb-2 text-xl animate-pulse">Click anywhere to play</p>
-          ) : (
-            <p className="mb-2 text-xl text-yellow-400">Please wait...</p>
-          )}
-          <p className="text-sm text-gray-300">W, A, S, D to move &bull; Space to jump &bull; Esc to pause</p>
+          <div className="flex flex-col items-center text-center max-w-md font-mono">
+            <h1 className="text-4xl sm:text-5xl font-extrabold mb-3 tracking-wider text-amber-300 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
+              MINECRAFT JAVA
+            </h1>
+            
+            {canLock ? (
+              <p className="mb-4 text-xl sm:text-2xl font-bold animate-pulse text-white">
+                {isMobile ? 'Tap anywhere to play' : 'Click anywhere to play'}
+              </p>
+            ) : (
+              <p className="mb-4 text-xl text-yellow-400">Please wait...</p>
+            )}
+
+            {/* Controls summary badge */}
+            <div className="bg-black/50 border border-white/30 rounded-lg p-3 text-xs text-stone-200 w-full mb-4 leading-relaxed">
+              {isMobile ? (
+                <div>
+                  <p className="font-bold text-yellow-300 mb-1">Mobile Touch Controls:</p>
+                  <p>• D-Pad to move & crouch (Center)</p>
+                  <p>• Drag right screen to look around</p>
+                  <p>• Mine, Place, Jump & Inventory buttons</p>
+                  <p>• Double-tap Forward or tap Sprint button</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="font-bold text-yellow-300 mb-1">Keyboard & Mouse Controls:</p>
+                  <p>• W, A, S, D to move &bull; Double-tap W to sprint</p>
+                  <p>• Shift to sneak &bull; Space to jump</p>
+                  <p>• Left Click: Mine &bull; Right Click: Place</p>
+                  <p>• E: Inventory &bull; Q: Drop &bull; Esc: Pause</p>
+                </div>
+              )}
+            </div>
+
+            {/* Mode switch button */}
+            <button
+              id="start-toggle-mode-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMobile(!isMobile);
+              }}
+              className="px-4 py-2 bg-stone-700 active:bg-stone-600 hover:bg-stone-600 border border-stone-400 rounded flex items-center gap-2 text-xs font-semibold text-white shadow transition-all cursor-pointer"
+            >
+              {isMobile ? (
+                <>
+                  <Monitor className="w-4 h-4 text-sky-300" />
+                  <span>Switch to Desktop (Keyboard)</span>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-4 h-4 text-emerald-300" />
+                  <span>Switch to Mobile (Touch)</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Crosshair UI */}
-      {isLocked && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+      {isPlayingActive && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
           <div className="relative flex items-center justify-center mix-blend-difference">
             <div className="absolute w-4 h-[2px] bg-white opacity-80" />
             <div className="absolute h-4 w-[2px] bg-white opacity-80" />
@@ -134,7 +205,16 @@ export default function App() {
         <TargetHighlight />
       </Canvas>
       
+      {/* Mobile Touch Overlay */}
+      <MobileControls />
+
+      {/* Pause Menu Modal */}
+      <PauseMenu />
+
+      {/* Hotbar */}
       <Hotbar />
+
+      {/* Inventory Window */}
       <InventoryUI />
     </div>
   );

@@ -23,6 +23,14 @@ export function InputManager() {
         }
       }
 
+      if (e.code === 'Escape') {
+        if (state.isInventoryOpen) {
+          state.setInventoryOpen(false);
+        } else {
+          state.setPaused(!state.isPaused);
+        }
+      }
+
       if (e.code === 'KeyF' && !state.isInventoryOpen) {
         state.swapOffhand();
       }
@@ -53,11 +61,23 @@ export function InputManager() {
       }
     };
 
+    const handleMobileDropItem = (e: Event) => {
+      const customEvent = e as CustomEvent<{ dropAll?: boolean }>;
+      const state = useWorldStore.getState();
+      const dir = new Vector3();
+      camera.getWorldDirection(dir);
+      if (!state.isInventoryOpen) {
+        state.throwCurrentItem(Boolean(customEvent.detail?.dropAll), camera.position, dir);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('drop-cursor-item', handleDropCursorItem);
+    window.addEventListener('mobile-drop-item', handleMobileDropItem);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('drop-cursor-item', handleDropCursorItem);
+      window.removeEventListener('mobile-drop-item', handleMobileDropItem);
     };
   }, [camera]);
 
