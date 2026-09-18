@@ -1,5 +1,14 @@
 export type BlockType = 'grass' | 'stone' | 'dirt' | 'sand' | 'bedrock';
 
+export const WORLD_BOUNDS = {
+  minX: -64,
+  maxX: 64,
+  minY: -16,
+  maxY: 128,
+  minZ: -64,
+  maxZ: 64,
+};
+
 export interface Block {
   x: number;
   y: number;

@@ -275,11 +275,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   removeInventory: (slotIndex, count) => set((state) => {
     const newHotbar = [...state.hotbar];
     if (newHotbar[slotIndex] && newHotbar[slotIndex].count >= count) {
-      newHotbar[slotIndex] = { 
-         ...newHotbar[slotIndex], 
-         count: newHotbar[slotIndex].count - count,
-         type: newHotbar[slotIndex].count - count === 0 ? null : newHotbar[slotIndex].type 
-      };
+      const remaining = newHotbar[slotIndex].count - count;
+      newHotbar[slotIndex] = remaining > 0
+        ? { ...newHotbar[slotIndex], count: remaining }
+        : { type: null, count: 0 };
       return { hotbar: newHotbar, lastPlacedTime: performance.now() };
     }
     return state;
