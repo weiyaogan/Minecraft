@@ -12,7 +12,6 @@ import {
 
 // Slightly larger than 1x1x1 to perfectly frame the block without z-fighting
 const highlightGeo = new BoxGeometry(1.005, 1.005, 1.005);
-const placementOutlineGeo = new BoxGeometry(1.004, 1.004, 1.004);
 const damageGeo = new BoxGeometry(1.002, 1.002, 1.002);
 
 export function TargetHighlight() {
@@ -31,12 +30,6 @@ export function TargetHighlight() {
   const damageRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const damageMaterialRef = useRef<any>(null);
-
-  // Visual feedback preview for adjacent placement cell
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const placementOutlineRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const placementGhostRef = useRef<any>(null);
 
   const mouseState = useRef({ isLeftDown: false, isRightDown: false });
   const isMiningRef = useRef(false);
@@ -191,8 +184,6 @@ export function TargetHighlight() {
 
     if (isInvOpen || isPaused) {
       highlightRef.current.visible = false;
-      if (placementOutlineRef.current) placementOutlineRef.current.visible = false;
-      if (placementGhostRef.current) placementGhostRef.current.visible = false;
       if (damageRef.current) damageRef.current.visible = false;
 
       if (isMiningRef.current) {
@@ -244,39 +235,6 @@ export function TargetHighlight() {
 
       if (damageRef.current) {
         damageRef.current.position.set(targetBlock.x, targetBlock.y, targetBlock.z);
-      }
-
-      // Visual feedback preview for adjacent candidate placement cell
-      let slotToUse = storeState.hotbar[storeState.selectedHotbarSlot];
-      if (!slotToUse || slotToUse.type === null || slotToUse.count <= 0) {
-        if (storeState.offhand && storeState.offhand.type !== null && storeState.offhand.count > 0) {
-          slotToUse = storeState.offhand;
-        }
-      }
-
-      const { placeX, placeY, placeZ } = getPlacementCoordinates(targetBlock, targetNormal);
-      const validation = validateBlockPlacement(
-        placeX,
-        placeY,
-        placeZ,
-        storeState.playerFeetPosition,
-        storeState.playerHeight,
-        storeState.blocks,
-        slotToUse
-      );
-
-      if (validation.valid && isAllowed && !isMiningRef.current) {
-        if (placementOutlineRef.current) {
-          placementOutlineRef.current.position.set(placeX, placeY, placeZ);
-          placementOutlineRef.current.visible = true;
-        }
-        if (placementGhostRef.current) {
-          placementGhostRef.current.position.set(placeX, placeY, placeZ);
-          placementGhostRef.current.visible = true;
-        }
-      } else {
-        if (placementOutlineRef.current) placementOutlineRef.current.visible = false;
-        if (placementGhostRef.current) placementGhostRef.current.visible = false;
       }
 
       const currentBlockKey = `${targetBlock.x},${targetBlock.y},${targetBlock.z}`;
@@ -344,8 +302,6 @@ export function TargetHighlight() {
         setIsMining(false);
       }
       highlightRef.current.visible = false;
-      if (placementOutlineRef.current) placementOutlineRef.current.visible = false;
-      if (placementGhostRef.current) placementGhostRef.current.visible = false;
       breakingState.current.blockKey = null;
       if (damageRef.current) damageRef.current.visible = false;
     }
@@ -353,21 +309,11 @@ export function TargetHighlight() {
 
   return (
     <>
-      {/* Targeted block outline */}
+      {/* Targeted block outline (Minecraft style) */}
       <lineSegments ref={highlightRef} visible={false}>
         <edgesGeometry args={[highlightGeo]} />
         <lineBasicMaterial ref={materialRef} color="black" opacity={0.4} transparent />
       </lineSegments>
-
-      {/* Target adjacent placement cell preview / highlight */}
-      <lineSegments ref={placementOutlineRef} visible={false}>
-        <edgesGeometry args={[placementOutlineGeo]} />
-        <lineBasicMaterial color="#ffffff" opacity={0.5} transparent />
-      </lineSegments>
-      <mesh ref={placementGhostRef} visible={false}>
-        <boxGeometry args={[0.998, 0.998, 0.998]} />
-        <meshBasicMaterial color="#ffffff" opacity={0.12} transparent depthWrite={false} />
-      </mesh>
 
       {/* Mining break cracks */}
       <mesh ref={damageRef} visible={false}>
