@@ -8,6 +8,7 @@ import { Player } from './components/Player';
 import { useWorldStore } from './store';
 import { useState, useEffect } from 'react';
 import { TargetHighlight } from './components/TargetHighlight';
+import { BreakParticles } from './components/BreakParticles';
 import { VoxelBlock } from './components/VoxelBlock';
 import { Hotbar } from './components/Hotbar';
 import { DroppedItemView } from './components/DroppedItemView';
@@ -16,6 +17,7 @@ import { InventoryUI } from './components/InventoryUI';
 import { InputManager } from './components/InputManager';
 import { MobileControls } from './components/MobileControls';
 import { PauseMenu } from './components/PauseMenu';
+import { initAudio } from './utils/audio';
 
 export default function App() {
   const [isLocked, setIsLocked] = useState(false);
@@ -60,6 +62,7 @@ export default function App() {
 
   const handleStartPlay = () => {
     if (!canLock) return;
+    initAudio();
     setHasStartedPlaying(true);
     setPaused(false);
 
@@ -178,6 +181,7 @@ export default function App() {
           <DroppedItemView key={item.id} item={item} />
         ))}
 
+        <BreakParticles />
         <TargetHighlight />
       </Canvas>
       

@@ -1,7 +1,13 @@
-import { grassTopTexture, dirtTexture, grassSideTexture, stoneTexture, bedrockTexture } from '../world/textures';
+import {
+  grassTopTexture,
+  dirtTexture,
+  grassSideTexture,
+  stoneTexture,
+  bedrockTexture,
+} from '../world/textures';
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
-import * as THREE from 'three';
+import { Mesh } from 'three';
 import { BlockType } from '../world/blocks';
 
 interface VoxelBlockProps {
@@ -11,7 +17,33 @@ interface VoxelBlockProps {
 }
 
 export function VoxelBlock({ type, position, createdAt }: VoxelBlockProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<Mesh>(null);
+  const animFinishedRef = useRef(false);
+
+  // Subtle placement animation: scale pops cleanly from 0.88 to 1.0 over 140ms
+  useFrame(() => {
+    if (!meshRef.current) return;
+    if (animFinishedRef.current) return;
+
+    if (!createdAt) {
+      meshRef.current.scale.set(1, 1, 1);
+      animFinishedRef.current = true;
+      return;
+    }
+
+    const elapsed = performance.now() - createdAt;
+    const duration = 140;
+
+    if (elapsed < duration) {
+      const progress = elapsed / duration;
+      // Ease out sine curve
+      const scale = 0.88 + 0.12 * Math.sin((progress * Math.PI) / 2);
+      meshRef.current.scale.set(scale, scale, scale);
+    } else {
+      meshRef.current.scale.set(1, 1, 1);
+      animFinishedRef.current = true;
+    }
+  });
 
   if (type === 'stone') {
     return (

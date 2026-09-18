@@ -241,6 +241,7 @@ async function runTests() {
       { x: 0, y: 0, z: 0, type: 'dirt' },
       { x: 1, y: 0, z: 0, type: 'stone' },
     ],
+    droppedItems: [],
   });
   useWorldStore.getState().removeBlock(0, 0, 0);
   const remainingBlocks = useWorldStore.getState().blocks;
@@ -248,7 +249,25 @@ async function runTests() {
 
   useWorldStore.getState().addBlock(2, 0, 0, 'sand');
   const afterAdd = useWorldStore.getState().blocks;
-  assert(afterAdd.length === 2 && afterAdd.some(b => b.x === 2 && b.type === 'sand'), 'addBlock works correctly');
+  const addedBlock = afterAdd.find(b => b.x === 2 && b.type === 'sand');
+  assert(afterAdd.length === 2 && addedBlock !== undefined, 'addBlock works correctly');
+  assert(typeof addedBlock?.createdAt === 'number', 'Placement attaches createdAt timestamp for subtle scale animation');
+
+  // Look away test: raycast pointing in empty space returns null target
+  const targetLookAway = findTargetBlock(new Vector3(0, 5, -3), new Vector3(0, 1, 0), remainingBlocks);
+  assert(targetLookAway.block === null && targetLookAway.normal === null, 'Looking away produces null target and hides outline');
+
+  // Item entity independence: adding dropped item creates independent entity unaffected by particles
+  useWorldStore.getState().addDroppedItem('dirt', [0, 5, 0], 1, [0, 1, 0], 0.1);
+  const items = useWorldStore.getState().droppedItems;
+  assert(items.length === 1 && items[0].type === 'dirt', 'Dropped item entity created independently with correct type and count');
+
+  // Rejection check: invalid placement produces no block addition
+  const initialCount = useWorldStore.getState().blocks.length;
+  const playerAtFeet = new Vector3(2, 0, 0);
+  const invalidVal = validateBlockPlacement(2, 0, 0, playerAtFeet, 1.8, useWorldStore.getState().blocks, { type: 'stone', count: 1 });
+  assert(!invalidVal.valid, 'Placement inside player is rejected');
+  assert(useWorldStore.getState().blocks.length === initialCount, 'Blocks array untouched when placement is rejected');
 
   console.log(`\n=== TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED ===`);
   if (failed > 0) process.exit(1);

@@ -9,10 +9,11 @@ import {
   getPlacementCoordinates,
   validateBlockPlacement,
 } from '../utils/blockPlacement';
+import { playDigSound, playBreakSound, playPlaceSound, initAudio } from '../utils/audio';
 
-// Slightly larger than 1x1x1 to perfectly frame the block without z-fighting
-const highlightGeo = new BoxGeometry(1.005, 1.005, 1.005);
-const damageGeo = new BoxGeometry(1.002, 1.002, 1.002);
+// 1.002 frames the voxel boundary crisply and tightly without z-fighting
+const highlightGeo = new BoxGeometry(1.002, 1.002, 1.002);
+const damageGeo = new BoxGeometry(1.0025, 1.0025, 1.0025);
 
 export function TargetHighlight() {
   const { camera } = useThree();
@@ -34,6 +35,7 @@ export function TargetHighlight() {
   const mouseState = useRef({ isLeftDown: false, isRightDown: false });
   const isMiningRef = useRef(false);
   const lastPlaceTime = useRef(0);
+  const lastDigSoundTime = useRef(0);
 
   const targetData = useRef<{
     block: Block | null;
@@ -47,6 +49,7 @@ export function TargetHighlight() {
   }>({ blockKey: null, startTime: 0 });
 
   const attemptPlaceBlock = () => {
+    initAudio();
     const storeState = useWorldStore.getState();
     if (storeState.isPaused || storeState.isInventoryOpen) return false;
 
@@ -90,11 +93,12 @@ export function TargetHighlight() {
       slotToUse
     );
 
+    // REJECTED: Return immediately without consuming item, modifying world, or playing sound
     if (!validation.valid) {
       return false;
     }
 
-    // Validation passed: add block to world and consume exactly 1 item
+    // VALID: Add block to world and consume exactly 1 item
     addBlock(placeX, placeY, placeZ, slotToUse.type);
     lastPlaceTime.current = now;
 
@@ -104,11 +108,15 @@ export function TargetHighlight() {
       storeState.removeInventory(storeState.selectedHotbarSlot, 1);
     }
 
+    // Play crisp placement sound on successful placement
+    playPlaceSound(slotToUse.type);
+
     return true;
   };
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
+      initAudio();
       if (!document.pointerLockElement) return;
 
       // Left click starts mining / punching
@@ -190,6 +198,7 @@ export function TargetHighlight() {
         isMiningRef.current = false;
         setIsMining(false);
       }
+      breakingState.current.blockKey = null;
       return;
     }
 
@@ -230,6 +239,7 @@ export function TargetHighlight() {
     }
 
     if (targetBlock && targetNormal) {
+      // Crisp targeted block outline aligned to voxel grid boundaries
       highlightRef.current.position.set(targetBlock.x, targetBlock.y, targetBlock.z);
       highlightRef.current.visible = true;
 
@@ -239,6 +249,12 @@ export function TargetHighlight() {
 
       const currentBlockKey = `${targetBlock.x},${targetBlock.y},${targetBlock.z}`;
 
+      // Reset mining progress if target block changed
+      if (breakingState.current.blockKey !== currentBlockKey) {
+        breakingState.current.blockKey = currentBlockKey;
+        breakingState.current.startTime = performance.now();
+      }
+
       // Mining logic
       if (isLeftActive && isAllowed) {
         if (!isMiningRef.current) {
@@ -246,17 +262,19 @@ export function TargetHighlight() {
           setIsMining(true);
         }
 
-        if (breakingState.current.blockKey !== currentBlockKey) {
-          breakingState.current.blockKey = currentBlockKey;
-          breakingState.current.startTime = performance.now();
+        // Play subtle repeated digging sound at cadence (~220ms)
+        const now = performance.now();
+        if (now - lastDigSoundTime.current >= 220) {
+          playDigSound(targetBlock.type);
+          lastDigSoundTime.current = now;
         }
 
         const props = BLOCK_PROPERTIES[targetBlock.type];
         const breakTime = props.breakTime;
-        const elapsed = (performance.now() - breakingState.current.startTime) / 1000;
+        const elapsed = (now - breakingState.current.startTime) / 1000;
         const progress = Math.min(elapsed / breakTime, 1);
 
-        // Visual feedback stages (0 to 9)
+        // Visual crack stages (0 to 9)
         const stage = Math.floor(progress * 10);
         if (damageMaterialRef.current) {
           if (stage > 0) {
@@ -269,11 +287,28 @@ export function TargetHighlight() {
           }
         }
 
+        // Block broken
         if (elapsed >= breakTime) {
+          // Play distinct break sound
+          playBreakSound(targetBlock.type);
+
+          // Spawn subtle voxel break particles
+          window.dispatchEvent(
+            new CustomEvent('block-break-particles', {
+              detail: {
+                x: targetBlock.x,
+                y: targetBlock.y,
+                z: targetBlock.z,
+                type: targetBlock.type,
+              },
+            })
+          );
+
           removeBlock(targetBlock.x, targetBlock.y, targetBlock.z);
           breakingState.current.blockKey = null;
           if (damageRef.current) damageRef.current.visible = false;
 
+          // Spawn dropped-item entity independently
           const canHarvest = !props.requiresTool;
           if (canHarvest && props.drops) {
             const vx = (Math.random() - 0.5) * 1.5;
@@ -289,6 +324,7 @@ export function TargetHighlight() {
           }
         }
       } else {
+        // Released mining button: reset crack progress and mining state immediately
         if (isMiningRef.current) {
           isMiningRef.current = false;
           setIsMining(false);
@@ -297,6 +333,7 @@ export function TargetHighlight() {
         if (damageRef.current) damageRef.current.visible = false;
       }
     } else {
+      // Looking away / no block targeted: hide outline and cracks immediately
       if (isMiningRef.current) {
         isMiningRef.current = false;
         setIsMining(false);
@@ -309,15 +346,28 @@ export function TargetHighlight() {
 
   return (
     <>
-      {/* Targeted block outline (Minecraft style) */}
+      {/* Targeted block outline: thin, crisp, high-contrast voxel frame */}
       <lineSegments ref={highlightRef} visible={false}>
         <edgesGeometry args={[highlightGeo]} />
-        <lineBasicMaterial ref={materialRef} color="black" opacity={0.4} transparent />
+        <lineBasicMaterial
+          ref={materialRef}
+          color="#000000"
+          opacity={0.65}
+          transparent={true}
+          depthWrite={false}
+          depthTest={true}
+        />
       </lineSegments>
 
       {/* Mining break cracks */}
       <mesh ref={damageRef} visible={false}>
-        <boxGeometry args={[damageGeo.parameters.width, damageGeo.parameters.height, damageGeo.parameters.depth]} />
+        <boxGeometry
+          args={[
+            damageGeo.parameters.width,
+            damageGeo.parameters.height,
+            damageGeo.parameters.depth,
+          ]}
+        />
         <meshBasicMaterial ref={damageMaterialRef} transparent depthWrite={false} />
       </mesh>
     </>
