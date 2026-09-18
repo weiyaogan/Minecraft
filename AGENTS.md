@@ -1,5 +1,5 @@
 # Project Instructions
 
 ## Git Workflow
-- Always commit all changes after each feature, fix, or update.
-- Always immediately run `git push origin main` after committing so that the remote GitHub repository (`weiyaogan/Minecraft`) is always in sync with every change.
+- Commit changes locally when appropriate.
+- Do NOT push changes to GitHub (`git push`). The user will push to GitHub manually.
