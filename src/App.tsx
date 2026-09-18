@@ -16,7 +16,6 @@ import { InventoryUI } from './components/InventoryUI';
 import { InputManager } from './components/InputManager';
 import { MobileControls } from './components/MobileControls';
 import { PauseMenu } from './components/PauseMenu';
-import { Smartphone, Monitor } from 'lucide-react';
 
 export default function App() {
   const [isLocked, setIsLocked] = useState(false);
@@ -30,7 +29,6 @@ export default function App() {
   const isPaused = useWorldStore(state => state.isPaused);
   const setPaused = useWorldStore(state => state.setPaused);
   const isMobile = useWorldStore(state => state.isMobile);
-  const setIsMobile = useWorldStore(state => state.setIsMobile);
 
   useEffect(() => {
     const handlePointerLockChange = () => {
@@ -119,47 +117,25 @@ export default function App() {
             )}
 
             {/* Controls summary badge */}
-            <div className="bg-black/50 border border-white/30 rounded-lg p-3 text-xs text-stone-200 w-full mb-4 leading-relaxed">
+            <div className="bg-black/50 border border-white/30 rounded-lg p-3 text-xs text-stone-200 w-full mb-2 leading-relaxed">
               {isMobile ? (
-                <div>
+                <div className="space-y-1">
                   <p className="font-bold text-yellow-300 mb-1">Mobile Touch Controls:</p>
-                  <p>• D-Pad to move & crouch (Center)</p>
-                  <p>• Drag right screen to look around</p>
-                  <p>• Mine, Place, Jump & Inventory buttons</p>
-                  <p>• Double-tap Forward or tap Sprint button</p>
+                  <p>• Left Joystick: Move &amp; Sprint</p>
+                  <p>• Right Joystick: Look around</p>
+                  <p>• Tap block: Place &bull; Hold block: Mine</p>
+                  <p>• Jump &amp; Sneak buttons &bull; &apos;•••&apos; Inventory</p>
                 </div>
               ) : (
-                <div>
-                  <p className="font-bold text-yellow-300 mb-1">Keyboard & Mouse Controls:</p>
+                <div className="space-y-1">
+                  <p className="font-bold text-yellow-300 mb-1">Keyboard &amp; Mouse Controls:</p>
                   <p>• W, A, S, D to move &bull; Double-tap W to sprint</p>
                   <p>• Shift to sneak &bull; Space to jump</p>
                   <p>• Left Click: Mine &bull; Right Click: Place</p>
-                  <p>• E: Inventory &bull; Q: Drop &bull; Esc: Pause</p>
+                  <p>• E: Inventory &bull; Q: Drop (Ctrl+Q: Stack) &bull; Esc: Pause</p>
                 </div>
               )}
             </div>
-
-            {/* Mode switch button */}
-            <button
-              id="start-toggle-mode-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMobile(!isMobile);
-              }}
-              className="px-4 py-2 bg-stone-700 active:bg-stone-600 hover:bg-stone-600 border border-stone-400 rounded flex items-center gap-2 text-xs font-semibold text-white shadow transition-all cursor-pointer"
-            >
-              {isMobile ? (
-                <>
-                  <Monitor className="w-4 h-4 text-sky-300" />
-                  <span>Switch to Desktop (Keyboard)</span>
-                </>
-              ) : (
-                <>
-                  <Smartphone className="w-4 h-4 text-emerald-300" />
-                  <span>Switch to Mobile (Touch)</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
       )}

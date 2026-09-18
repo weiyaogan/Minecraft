@@ -1,6 +1,6 @@
 {
   "name": "Minecraft Java",
-  "description": "Foundation for a voxel sandbox game, starting with a basic 3D cube.",
+  "description": "A full-featured Minecraft Java voxel sandbox with authentic block breaking, block placing, physics, item throwing, and seamless desktop and mobile touch controls.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

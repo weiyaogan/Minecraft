@@ -117,8 +117,10 @@ export function TargetHighlight() {
         addBlock(placeX, placeY, placeZ, slotToUse.type);
         if (isOffhand) {
           state.removeOffhand(1);
+          useWorldStore.setState({ lastOffhandPlacedTime: performance.now() });
         } else {
           state.removeInventory(state.selectedHotbarSlot, 1);
+          useWorldStore.setState({ lastPlacedTime: performance.now() });
         }
         return true;
       }
@@ -173,9 +175,14 @@ export function TargetHighlight() {
       e.preventDefault();
     };
 
+    const handleMobilePlaceBlock = () => {
+      attemptPlaceBlock();
+    };
+
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('mobile-place-block', handleMobilePlaceBlock);
     document.addEventListener('pointerlockchange', handlePointerLockChange);
     document.addEventListener('webkitpointerlockchange', handlePointerLockChange);
     window.addEventListener('blur', handleBlur);
@@ -184,6 +191,7 @@ export function TargetHighlight() {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('mobile-place-block', handleMobilePlaceBlock);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
       document.removeEventListener('webkitpointerlockchange', handlePointerLockChange);
       window.removeEventListener('blur', handleBlur);
@@ -316,10 +324,10 @@ export function TargetHighlight() {
           
           const canHarvest = !props.requiresTool;
           if (canHarvest && props.drops) {
-            const vx = (Math.random() - 0.5) * 2;
-            const vy = Math.random() * 2 + 2; // slight upward pop
-            const vz = (Math.random() - 0.5) * 2;
-            playerStateRef.current.addDroppedItem(props.drops, [targetBlock.x, targetBlock.y, targetBlock.z], props.dropCount, [vx, vy, vz], 10);
+            const vx = (Math.random() - 0.5) * 1.5;
+            const vy = Math.random() * 1.5 + 2.0; // slight upward pop
+            const vz = (Math.random() - 0.5) * 1.5;
+            playerStateRef.current.addDroppedItem(props.drops, [targetBlock.x, targetBlock.y, targetBlock.z], props.dropCount, [vx, vy, vz], 0.1);
           }
         }
       } else {

@@ -36,16 +36,18 @@ export function InputManager() {
       }
 
       if (e.code === 'KeyQ') {
+        e.preventDefault();
+        const dropAll = Boolean(e.ctrlKey || e.metaKey);
         const dir = new Vector3();
         camera.getWorldDirection(dir);
         if (!state.isInventoryOpen) {
-          state.throwCurrentItem(e.ctrlKey, camera.position, dir);
+          state.throwCurrentItem(dropAll, camera.position, dir);
         } else {
           // Inventory is open
           if (state.cursorItem) {
-            state.throwInventoryItem('cursor', 0, e.ctrlKey, camera.position, dir);
+            state.throwInventoryItem('cursor', 0, dropAll, camera.position, dir);
           } else if (state.hoveredSlot) {
-            state.throwInventoryItem(state.hoveredSlot.container, state.hoveredSlot.index, e.ctrlKey, camera.position, dir);
+            state.throwInventoryItem(state.hoveredSlot.container, state.hoveredSlot.index, dropAll, camera.position, dir);
           }
         }
       }

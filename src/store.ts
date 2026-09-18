@@ -8,7 +8,15 @@ export interface DroppedItem {
   position: [number, number, number];
   velocity: [number, number, number];
   count: number;
-  pickupDelayTicks: number;
+  pickupDelay: number; // in seconds
+}
+
+export function detectIsMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints > 0);
+  const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+  return isMobileUA || (hasTouch && isCoarse);
 }
 
 export interface InventorySlot {
@@ -71,6 +79,9 @@ interface WorldState {
   toggleVirtualInput: (key: keyof VirtualInputs) => void;
   resetVirtualInputs: () => void;
   
+  joystickMove: { x: number; y: number };
+  setJoystickMove: (x: number, y: number) => void;
+  
   respawnTrigger: number;
   respawnPlayer: () => void;
   
@@ -82,11 +93,11 @@ interface WorldState {
   clickSlot: (container: 'hotbar'|'inventory'|'offhand', index: number, isRightClick: boolean, isShift: boolean) => void;
   distributeItems: (slots: {container: 'hotbar'|'inventory', index: number}[]) => void;
   
-  throwCurrentItem: (dropAll: boolean, playerPos: Vector3, cameraDir: Vector3) => void;
-  throwInventoryItem: (container: 'hotbar'|'inventory'|'offhand'|'cursor', index: number, dropAll: boolean, playerPos: Vector3, cameraDir: Vector3) => void;
+  throwCurrentItem: (dropAll: boolean, playerPosOrCameraDir: Vector3, optionalCameraDir?: Vector3) => void;
+  throwInventoryItem: (container: 'hotbar'|'inventory'|'offhand'|'cursor', index: number, dropAll: boolean, playerPosOrCameraDir: Vector3, optionalCameraDir?: Vector3) => void;
 
   droppedItems: DroppedItem[];
-  addDroppedItem: (type: BlockType, position: [number, number, number], count: number, velocity?: [number, number, number], pickupDelayTicks?: number) => void;
+  addDroppedItem: (type: BlockType, position: [number, number, number], count: number, velocity?: [number, number, number], pickupDelay?: number) => void;
   removeDroppedItem: (id: string) => void;
   updateDroppedItem: (id: string, count: number) => void;
   
@@ -136,11 +147,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     return { isPaused };
   }),
   
-  isMobile: typeof window !== 'undefined' && (
-    'ontouchstart' in window ||
-    navigator.maxTouchPoints > 0 ||
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  ),
+  isMobile: detectIsMobile(),
   setIsMobile: (isMobile) => set({ isMobile }),
   
   virtualInputs: { ...defaultVirtualInputs },
@@ -151,6 +158,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     virtualInputs: { ...state.virtualInputs, [key]: !state.virtualInputs[key] }
   })),
   resetVirtualInputs: () => set({ virtualInputs: { ...defaultVirtualInputs } }),
+  
+  joystickMove: { x: 0, y: 0 },
+  setJoystickMove: (x, y) => set({ joystickMove: { x, y } }),
   
   respawnTrigger: 0,
   respawnPlayer: () => set((state) => ({
@@ -190,7 +200,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         ] as [number, number, number],
         velocity,
         count: state.cursorItem.count,
-        pickupDelayTicks: 40,
+        pickupDelay: 0.5,
       };
       
       return { 
@@ -420,9 +430,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     };
   }),
 
-  throwCurrentItem: (dropAll, playerPos, cameraDir) => set((state) => {
+  throwCurrentItem: (dropAll, playerPosOrCameraDir, optionalCameraDir) => set((state) => {
+    const cameraDir = optionalCameraDir || playerPosOrCameraDir;
     const slot = state.hotbar[state.selectedHotbarSlot];
-    if (!slot.type) return state;
+    if (!slot || !slot.type || slot.count <= 0) return state;
     
     const dropCount = dropAll ? slot.count : 1;
     const remaining = slot.count - dropCount;
@@ -430,27 +441,63 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     const newHotbar = [...state.hotbar];
     newHotbar[state.selectedHotbarSlot] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
     
-    // Spawn velocity: based on Minecraft Java ~0.3 blocks/tick (6 blocks/sec) forward, +0.1 (2 blocks/sec) up
+    // Horizontal facing direction from cameraDir
+    let hx = cameraDir.x;
+    let hz = cameraDir.z;
+    const len = Math.hypot(hx, hz);
+    if (len > 0.001) {
+      hx /= len;
+      hz /= len;
+    } else {
+      hx = 0;
+      hz = -1;
+    }
+
+    // Right vector on horizontal plane (main-hand side)
+    const rx = -hz;
+    const rz = hx;
+
+    // Lower-to-middle body height
+    const spawnY = state.playerFeetPosition.y + state.playerHeight * 0.45;
+
+    // In front of player, near main-hand side
+    let spawnX = state.playerFeetPosition.x + hx * 0.35 + rx * 0.15;
+    let spawnZ = state.playerFeetPosition.z + hz * 0.35 + rz * 0.15;
+
+    // Solid block / wall check to prevent spawning inside a wall or on far side of wall
+    const isSolid = (x: number, y: number, z: number) => {
+      return state.blocks.some(b => 
+        Math.abs(b.x - x) < 0.48 &&
+        Math.abs(b.y - y) < 0.48 &&
+        Math.abs(b.z - z) < 0.48
+      );
+    };
+
+    if (isSolid(spawnX, spawnY, spawnZ)) {
+      spawnX = state.playerFeetPosition.x + hx * 0.15;
+      spawnZ = state.playerFeetPosition.z + hz * 0.15;
+      if (isSolid(spawnX, spawnY, spawnZ)) {
+        spawnX = state.playerFeetPosition.x;
+        spawnZ = state.playerFeetPosition.z;
+      }
+    }
+
+    // Velocity: ~3 blocks/s forward, ~1.5 blocks/s up
+    const fSpeed = 3.0 + (Math.random() - 0.5) * 0.2;
+    const upSpeed = 1.5 + (Math.random() - 0.5) * 0.1;
     const velocity: [number, number, number] = [
-       cameraDir.x * 6,
-       cameraDir.y * 6 + 2,
-       cameraDir.z * 6
-    ];
-    
-    // Spawn at eye height - 0.3 (approx 1.3 for player), slightly in front
-    const dropPos: [number, number, number] = [
-       state.playerFeetPosition.x + cameraDir.x * 0.3,
-       state.playerFeetPosition.y + 1.3,
-       state.playerFeetPosition.z + cameraDir.z * 0.3
+      hx * fSpeed + (Math.random() - 0.5) * 0.1,
+      upSpeed,
+      hz * fSpeed + (Math.random() - 0.5) * 0.1
     ];
 
     const newItem: DroppedItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: slot.type,
-      position: dropPos,
-      velocity: velocity,
+      position: [spawnX, spawnY, spawnZ],
+      velocity,
       count: dropCount,
-      pickupDelayTicks: 40, // 2 seconds for player-thrown items
+      pickupDelay: 0.5, // 0.5 seconds pickup delay for player throws
     };
 
     return {
@@ -459,46 +506,84 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     };
   }),
 
-  throwInventoryItem: (container, index, dropAll, playerPos, cameraDir) => set((state) => {
+  throwInventoryItem: (container, index, dropAll, playerPosOrCameraDir, optionalCameraDir) => set((state) => {
+    const cameraDir = optionalCameraDir || playerPosOrCameraDir;
+    // Horizontal facing direction from cameraDir
+    let hx = cameraDir.x;
+    let hz = cameraDir.z;
+    const len = Math.hypot(hx, hz);
+    if (len > 0.001) {
+      hx /= len;
+      hz /= len;
+    } else {
+      hx = 0;
+      hz = -1;
+    }
+    const rx = -hz;
+    const rz = hx;
+    const spawnY = state.playerFeetPosition.y + state.playerHeight * 0.45;
+    let spawnX = state.playerFeetPosition.x + hx * 0.35 + rx * 0.15;
+    let spawnZ = state.playerFeetPosition.z + hz * 0.35 + rz * 0.15;
+
+    const isSolid = (x: number, y: number, z: number) => {
+      return state.blocks.some(b => 
+        Math.abs(b.x - x) < 0.48 &&
+        Math.abs(b.y - y) < 0.48 &&
+        Math.abs(b.z - z) < 0.48
+      );
+    };
+    if (isSolid(spawnX, spawnY, spawnZ)) {
+      spawnX = state.playerFeetPosition.x + hx * 0.15;
+      spawnZ = state.playerFeetPosition.z + hz * 0.15;
+      if (isSolid(spawnX, spawnY, spawnZ)) {
+        spawnX = state.playerFeetPosition.x;
+        spawnZ = state.playerFeetPosition.z;
+      }
+    }
+
+    const fSpeed = 3.0 + (Math.random() - 0.5) * 0.2;
+    const upSpeed = 1.5 + (Math.random() - 0.5) * 0.1;
+    const velocity: [number, number, number] = [
+      hx * fSpeed + (Math.random() - 0.5) * 0.1,
+      upSpeed,
+      hz * fSpeed + (Math.random() - 0.5) * 0.1
+    ];
+
     if (container === 'cursor') {
-      if (!state.cursorItem) return state;
+      if (!state.cursorItem || !state.cursorItem.type) return state;
       const dropCount = dropAll ? state.cursorItem.count : 1;
       const remaining = state.cursorItem.count - dropCount;
-      const velocity: [number, number, number] = [cameraDir.x * 6, cameraDir.y * 6 + 2, cameraDir.z * 6];
-      const dropPos: [number, number, number] = [state.playerFeetPosition.x + cameraDir.x * 0.3, state.playerFeetPosition.y + 1.3, state.playerFeetPosition.z + cameraDir.z * 0.3];
       const newItem: DroppedItem = {
         id: Math.random().toString(36).substr(2, 9),
-        type: state.cursorItem.type!,
-        position: dropPos,
-        velocity: velocity,
+        type: state.cursorItem.type,
+        position: [spawnX, spawnY, spawnZ],
+        velocity,
         count: dropCount,
-        pickupDelayTicks: 40,
+        pickupDelay: 0.5,
       };
       return {
         cursorItem: remaining > 0 ? { ...state.cursorItem, count: remaining } : null,
         droppedItems: [...state.droppedItems, newItem]
       };
     }
+
     const getContainer = () => container === 'hotbar' ? [...state.hotbar] : container === 'inventory' ? [...state.inventory] : [state.offhand];
     const arr = getContainer();
     const slot = arr[index];
-    if (!slot.type) return state;
+    if (!slot || !slot.type || slot.count <= 0) return state;
     
     const dropCount = dropAll ? slot.count : 1;
     const remaining = slot.count - dropCount;
     
     arr[index] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
-    
-    const velocity: [number, number, number] = [cameraDir.x * 6, cameraDir.y * 6 + 2, cameraDir.z * 6];
-    const dropPos: [number, number, number] = [state.playerFeetPosition.x + cameraDir.x * 0.3, state.playerFeetPosition.y + 1.3, state.playerFeetPosition.z + cameraDir.z * 0.3];
 
     const newItem: DroppedItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: slot.type,
-      position: dropPos,
-      velocity: velocity,
+      position: [spawnX, spawnY, spawnZ],
+      velocity,
       count: dropCount,
-      pickupDelayTicks: 40,
+      pickupDelay: 0.5,
     };
 
     let updates: Partial<WorldState> = { droppedItems: [...state.droppedItems, newItem] };
@@ -510,14 +595,14 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   }),
 
   droppedItems: [],
-  addDroppedItem: (type, position, count, velocity = [0, 2, 0], pickupDelayTicks = 10) => set((state) => ({
+  addDroppedItem: (type, position, count, velocity = [0, 2, 0], pickupDelay = 0.1) => set((state) => ({
     droppedItems: [...state.droppedItems, {
       id: Math.random().toString(36).substr(2, 9),
       type,
       position,
       velocity,
       count,
-      pickupDelayTicks,
+      pickupDelay,
     }]
   })),
   removeDroppedItem: (id) => set((state) => ({
@@ -535,3 +620,27 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   playerHeight: 1.8,
   setPlayerHeight: (height) => set((state) => (state.playerHeight === height ? state : { playerHeight: height })),
 }));
+
+// Automatic input method adaptation (Touch vs Desktop Keyboard)
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => {
+    const state = useWorldStore.getState();
+    const gameKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyQ', 'KeyF'];
+    if (gameKeys.includes(e.code) && state.isMobile) {
+      const hasFinePointer = window.matchMedia('(pointer: fine)').matches;
+      if (hasFinePointer && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        state.setIsMobile(false);
+      }
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchstart', () => {
+    const state = useWorldStore.getState();
+    if (!state.isMobile) {
+      const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+      if (isCoarse || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        state.setIsMobile(true);
+      }
+    }
+  }, { passive: true });
+}

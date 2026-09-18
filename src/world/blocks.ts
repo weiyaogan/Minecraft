@@ -20,7 +20,7 @@ export interface BlockProperties {
 
 export const BLOCK_PROPERTIES: Record<BlockType, BlockProperties> = {
   grass: {
-    breakTime: 0.9,
+    breakTime: 0.75,
     canBreakByHand: true,
     requiresTool: false,
     requiredToolType: null,

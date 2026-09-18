@@ -1,12 +1,11 @@
 import React from 'react';
 import { useWorldStore } from '../store';
-import { Play, RotateCcw, Smartphone, Monitor, ShieldAlert, Volume2 } from 'lucide-react';
+import { Play, RotateCcw } from 'lucide-react';
 
 export function PauseMenu() {
   const isPaused = useWorldStore(state => state.isPaused);
   const setPaused = useWorldStore(state => state.setPaused);
   const isMobile = useWorldStore(state => state.isMobile);
-  const setIsMobile = useWorldStore(state => state.setIsMobile);
   const respawnPlayer = useWorldStore(state => state.respawnPlayer);
 
   if (!isPaused) return null;
@@ -27,10 +26,6 @@ export function PauseMenu() {
 
   const handleRespawn = () => {
     respawnPlayer();
-  };
-
-  const handleToggleMobileMode = () => {
-    setIsMobile(!isMobile);
   };
 
   return (
@@ -70,30 +65,11 @@ export function PauseMenu() {
             <RotateCcw className="w-5 h-5" />
             <span>Respawn Player</span>
           </button>
-
-          {/* Toggle Mobile / Desktop HUD Mode */}
-          <button
-            id="pause-toggle-mobile-mode-btn"
-            onClick={handleToggleMobileMode}
-            className="w-full py-2.5 px-4 bg-[#666666] active:bg-[#4d4d4d] hover:bg-[#777777] text-white font-medium border-2 border-t-[#aaaaaa] border-l-[#aaaaaa] border-b-[#2a2a2a] border-r-[#2a2a2a] shadow flex items-center justify-center gap-2 text-sm transition-transform active:translate-y-0.5 cursor-pointer"
-          >
-            {isMobile ? (
-              <>
-                <Monitor className="w-4 h-4" />
-                <span>Switch to Desktop View</span>
-              </>
-            ) : (
-              <>
-                <Smartphone className="w-4 h-4" />
-                <span>Switch to Mobile Controls</span>
-              </>
-            )}
-          </button>
         </div>
 
         {/* Hint text */}
         <p className="text-xs text-stone-300 text-center mt-2 opacity-80">
-          {isMobile ? 'Mobile touch controls enabled' : 'Press ESC or click Resume to continue playing'}
+          {isMobile ? 'Touch controls active' : 'Press ESC or click Resume to continue playing'}
         </p>
       </div>
     </div>

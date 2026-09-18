@@ -11,7 +11,7 @@ interface Props {
 const itemWidth = 0.25;
 const itemHeight = 0.25;
 
-export const droppedItemPhysicsData = new Map<string, { pos: THREE.Vector3, count: number, age: number, isDead: boolean, type: string }>();
+export const droppedItemPhysicsData = new Map<string, { pos: THREE.Vector3, count: number, age: number, isDead: boolean, isAbsorbing: boolean, type: string }>();
 
 const getItemAABB = (pos: THREE.Vector3) => ({
   minX: pos.x - itemWidth / 2,
@@ -49,13 +49,13 @@ export function DroppedItemView({ item }: Props) {
   const velocity = useRef(new THREE.Vector3(...(item.velocity || [0, 2, 0])));
   
   const tickAccumulator = useRef(0);
-  const pickupDelay = useRef(item.pickupDelayTicks || 10);
+  const pickupDelay = useRef(item.pickupDelay ?? 0.5);
   const age = useRef(0);
   
   const bobOffset = useMemo(() => Math.random() * Math.PI * 2, []);
 
   useEffect(() => {
-    droppedItemPhysicsData.set(item.id, { pos: currentPos.current, count: item.count, age: age.current, isDead: false, type: item.type });
+    droppedItemPhysicsData.set(item.id, { pos: currentPos.current, count: item.count, age: age.current, isDead: false, isAbsorbing: false, type: item.type });
     return () => {
       droppedItemPhysicsData.delete(item.id);
     };
@@ -64,27 +64,32 @@ export function DroppedItemView({ item }: Props) {
   useFrame((_, delta) => {
     if (!meshRef.current || !visualMeshRef.current || isDead.current) return;
     
+    // Decrement pickup delay (seconds)
+    if (pickupDelay.current > 0) {
+      pickupDelay.current = Math.max(0, pickupDelay.current - delta);
+    }
+
     // Ticking logic
     tickAccumulator.current += delta;
     while (tickAccumulator.current >= 0.05) { // 20 TPS
       tickAccumulator.current -= 0.05;
       age.current++;
-      if (pickupDelay.current > 0) pickupDelay.current--;
       
       const myData = droppedItemPhysicsData.get(item.id);
       if (myData) {
         myData.age = age.current;
         myData.count = item.count;
+        myData.isAbsorbing = isAbsorbing.current;
       }
       
-      // Merging check (every 5 ticks to save perf)
+      // Merging check (every 5 ticks, only if neither item is being collected)
       if (age.current % 5 === 0 && item.count < 64 && !isAbsorbing.current) {
         for (const [otherId, otherData] of droppedItemPhysicsData.entries()) {
-          if (otherId !== item.id && !otherData.isDead && otherData.type === item.type) {
+          if (otherId !== item.id && !otherData.isDead && !otherData.isAbsorbing && otherData.type === item.type) {
              // Only older items absorb newer ones to avoid circular merge loops
              if (age.current > otherData.age || (age.current === otherData.age && item.id > otherId)) {
                const dist = currentPos.current.distanceTo(otherData.pos);
-               if (dist < 0.75) {
+               if (dist < 0.8) {
                  const space = 64 - item.count;
                  if (space > 0) {
                    const toTake = Math.min(space, otherData.count);
@@ -191,30 +196,35 @@ export function DroppedItemView({ item }: Props) {
     }
 
     // Pickup Check
-    if (pickupDelay.current === 0 && !isAbsorbing.current && !isDead.current) {
-      const playerAABB = {
-        minX: playerFeetPosition.x - 0.3,
-        maxX: playerFeetPosition.x + 0.3,
-        minY: playerFeetPosition.y,
-        maxY: playerFeetPosition.y + playerHeight,
-        minZ: playerFeetPosition.z - 0.3,
-        maxZ: playerFeetPosition.z + 0.3,
-      };
-      const iAABB = getItemAABB(currentPos.current);
+    // Both conditions must be met:
+    // 1. The pickup delay has expired (pickupDelay <= 0)
+    // 2. The player is within the 1.5-block 3D distance radius
+    if (pickupDelay.current <= 0 && !isAbsorbing.current && !isDead.current) {
+      const playerCenter = new THREE.Vector3(
+        playerFeetPosition.x,
+        playerFeetPosition.y + playerHeight * 0.5,
+        playerFeetPosition.z
+      );
+      const itemCenter = new THREE.Vector3(
+        currentPos.current.x,
+        currentPos.current.y + itemHeight * 0.5,
+        currentPos.current.z
+      );
       
-      if (checkIntersection(iAABB, playerAABB)) {
+      const distance = itemCenter.distanceTo(playerCenter);
+      if (distance <= 1.5) {
         isAbsorbing.current = true;
       }
     }
 
     if (isAbsorbing.current && !isDead.current) {
-      const targetPos = playerFeetPosition.clone().add(new THREE.Vector3(0, playerHeight / 2, 0));
-      currentPos.current.lerp(targetPos, delta * 15);
+      const targetPos = playerFeetPosition.clone().add(new THREE.Vector3(0, playerHeight * 0.5, 0));
+      currentPos.current.lerp(targetPos, delta * 14);
       
-      // Decrease scale to simulate absorption
-      visualMeshRef.current.scale.lerp(new THREE.Vector3(0.01, 0.01, 0.01), delta * 15);
+      // Decrease scale smoothly to simulate absorption into player
+      visualMeshRef.current.scale.lerp(new THREE.Vector3(0.02, 0.02, 0.02), delta * 14);
       
-      if (currentPos.current.distanceTo(targetPos) < 0.2) {
+      if (currentPos.current.distanceTo(targetPos) < 0.25) {
         const remaining = addInventory(item.type, item.count);
         if (remaining === 0) {
           isDead.current = true;
@@ -223,11 +233,9 @@ export function DroppedItemView({ item }: Props) {
         } else if (remaining < item.count) {
           updateDroppedItem(item.id, remaining);
           isAbsorbing.current = false;
-          // Restore scale
           visualMeshRef.current.scale.set(0.20, 0.20, 0.20);
         } else {
           isAbsorbing.current = false;
-          // Restore scale
           visualMeshRef.current.scale.set(0.20, 0.20, 0.20);
         }
       }

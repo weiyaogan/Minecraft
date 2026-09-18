@@ -75,6 +75,7 @@ export function Player() {
   const isPaused = useWorldStore(state => state.isPaused);
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
   const virtualInputs = useWorldStore(state => state.virtualInputs);
+  const joystickMove = useWorldStore(state => state.joystickMove);
 
   // Respawn effect
   useEffect(() => {
@@ -98,12 +99,12 @@ export function Player() {
     // Movement allowed if locked (desktop) or active playing without pause/inventory (mobile)
     const canControl = Boolean(controlsRef.current?.isLocked || (isMobile && !isPaused && !isInventoryOpen));
 
-    const inputForward = keys.forward || virtualInputs.forward;
-    const inputBackward = keys.backward || virtualInputs.backward;
-    const inputLeft = keys.left || virtualInputs.left;
-    const inputRight = keys.right || virtualInputs.right;
+    const inputForward = keys.forward || virtualInputs.forward || joystickMove.y > 0.15;
+    const inputBackward = keys.backward || virtualInputs.backward || joystickMove.y < -0.15;
+    const inputLeft = keys.left || virtualInputs.left || joystickMove.x < -0.15;
+    const inputRight = keys.right || virtualInputs.right || joystickMove.x > 0.15;
     const inputJump = keys.jump || virtualInputs.jump;
-    const inputSprint = keys.sprint || virtualInputs.sprint;
+    const inputSprint = keys.sprint || virtualInputs.sprint || joystickMove.y > 0.85;
     const inputSneak = keys.shift || virtualInputs.sneak;
 
     // --- 1. SNEAK & HEIGHT LOGIC ---
@@ -231,13 +232,20 @@ export function Player() {
       const sideVector = new Vector3(1, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), yaw);
 
       const direction = new Vector3();
-      if (forward) direction.add(frontVector);
-      if (backward) direction.sub(frontVector);
-      if (right) direction.add(sideVector);
-      if (left) direction.sub(sideVector);
+      if (keys.forward || virtualInputs.forward) direction.add(frontVector);
+      if (keys.backward || virtualInputs.backward) direction.sub(frontVector);
+      if (keys.right || virtualInputs.right) direction.add(sideVector);
+      if (keys.left || virtualInputs.left) direction.sub(sideVector);
 
-      if (direction.lengthSq() > 0) {
-        direction.normalize();
+      if (joystickMove.x !== 0 || joystickMove.y !== 0) {
+        direction.add(sideVector.clone().multiplyScalar(joystickMove.x));
+        direction.add(frontVector.clone().multiplyScalar(joystickMove.y));
+      }
+
+      const len = direction.length();
+      if (len > 0.001) {
+        const factor = Math.min(1, len);
+        direction.normalize().multiplyScalar(factor);
         dx = direction.x * speed * dt;
         dz = direction.z * speed * dt;
       }

@@ -170,6 +170,7 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
 
       // Touch controls for mobile / tablet devices where pointer lock is absent
       const handleTouchStart = (e: TouchEvent) => {
+        if (useWorldStore.getState().isMobile) return;
         if (e.touches.length === 1) {
           touchStartRef.current = {
             x: e.touches[0].clientX,
@@ -184,6 +185,7 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       };
 
       const handleTouchMove = (e: TouchEvent) => {
+        if (useWorldStore.getState().isMobile) return;
         if (!touchStartRef.current || e.touches.length !== 1) return;
 
         const touch = e.touches[0];

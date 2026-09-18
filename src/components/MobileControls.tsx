@@ -1,422 +1,539 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useWorldStore } from '../store';
-import { 
-  Pause, 
-  Backpack, 
-  ChevronUp, 
-  ChevronDown, 
-  ChevronLeft, 
-  ChevronRight, 
-  Pickaxe, 
-  Box, 
-  Shield, 
-  ArrowDownToLine, 
-  Zap,
-  UserCheck,
-  ArrowUp
-} from 'lucide-react';
+import { Pause, ArrowUp, UserCheck, Shield } from 'lucide-react';
 
 interface MobileControlsProps {
   onLookRotate?: (deltaX: number, deltaY: number) => void;
 }
 
+const JOYSTICK_MAX_RADIUS = 44;
+const TAP_MOVEMENT_THRESHOLD = 14;
+const LONG_PRESS_THRESHOLD_MS = 220;
+
 export function MobileControls({ onLookRotate }: MobileControlsProps) {
-  const isMobile = useWorldStore(state => state.isMobile);
-  const isPaused = useWorldStore(state => state.isPaused);
-  const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
-  const setPaused = useWorldStore(state => state.setPaused);
-  const setInventoryOpen = useWorldStore(state => state.setInventoryOpen);
-  const swapOffhand = useWorldStore(state => state.swapOffhand);
-  const throwCurrentItem = useWorldStore(state => state.throwCurrentItem);
-  const playerFeetPosition = useWorldStore(state => state.playerFeetPosition);
-  
-  const virtualInputs = useWorldStore(state => state.virtualInputs);
-  const setVirtualInput = useWorldStore(state => state.setVirtualInput);
-  const toggleVirtualInput = useWorldStore(state => state.toggleVirtualInput);
+  const isMobile = useWorldStore((state) => state.isMobile);
+  const isPaused = useWorldStore((state) => state.isPaused);
+  const isInventoryOpen = useWorldStore((state) => state.isInventoryOpen);
+  const setPaused = useWorldStore((state) => state.setPaused);
+  const virtualInputs = useWorldStore((state) => state.virtualInputs);
+  const setVirtualInput = useWorldStore((state) => state.setVirtualInput);
+  const toggleVirtualInput = useWorldStore((state) => state.toggleVirtualInput);
+  const setJoystickMove = useWorldStore((state) => state.setJoystickMove);
 
-  const [isSprintActive, setIsSprintActive] = useState(false);
-  const lastUpTapTime = useRef(0);
+  // Left (Move) Joystick visual state
+  const leftBaseRef = useRef<HTMLDivElement>(null);
+  const [leftKnobPos, setLeftKnobPos] = useState({ x: 0, y: 0 });
+  const leftTouchId = useRef<number | null>(null);
+  const leftCenter = useRef({ x: 0, y: 0 });
+  const lastForwardTapTime = useRef(0);
 
-  // Multi-touch tracking for camera look
-  const lookTouchId = useRef<number | null>(null);
-  const lastLookPos = useRef<{ x: number; y: number } | null>(null);
+  // Right (Look) Joystick visual state
+  const rightBaseRef = useRef<HTMLDivElement>(null);
+  const [rightKnobPos, setRightKnobPos] = useState({ x: 0, y: 0 });
+  const rightTouchId = useRef<number | null>(null);
+  const rightCenter = useRef({ x: 0, y: 0 });
+  const lookVelocity = useRef({ x: 0, y: 0 });
+  const lookAnimFrame = useRef<number | null>(null);
 
-  // Sync sprint state
+  // Gesture-based interaction tracking (Tap to place, Hold to mine, Drag to look)
+  const gestureTouch = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    startTime: number;
+    hasMoved: boolean;
+    isMining: boolean;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+
+  // Continuous loop for right look joystick rotation
   useEffect(() => {
-    setIsSprintActive(virtualInputs.sprint);
-  }, [virtualInputs.sprint]);
+    let active = true;
+    let lastTime = performance.now();
 
-  // Handle D-Pad button touches
-  const handleButtonTouch = (
-    key: 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'mine' | 'place',
-    isPressed: boolean,
-    e: React.TouchEvent
-  ) => {
-    e.stopPropagation();
-    e.preventDefault();
+    const loop = (currentTime: number) => {
+      if (!active) return;
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
+      lastTime = currentTime;
 
-    if (key === 'forward' && isPressed) {
-      const now = performance.now();
-      if (now - lastUpTapTime.current < 320) {
-        // Double-tap forward toggles sprinting
-        setVirtualInput('sprint', true);
-        setIsSprintActive(true);
+      const vx = lookVelocity.current.x;
+      const vy = lookVelocity.current.y;
+
+      if (Math.abs(vx) > 0.001 || Math.abs(vy) > 0.001) {
+        // Sensitivity tuned for smooth, responsive turning
+        const lookSpeed = 380;
+        const deltaX = vx * lookSpeed * dt;
+        const deltaY = vy * lookSpeed * dt;
+
+        window.dispatchEvent(
+          new CustomEvent('mobile-camera-look', {
+            detail: { deltaX, deltaY },
+          })
+        );
+        onLookRotate?.(deltaX, deltaY);
       }
-      lastUpTapTime.current = now;
-    } else if (key === 'forward' && !isPressed) {
-      // Releasing forward stops sprinting
-      setVirtualInput('sprint', false);
-      setIsSprintActive(false);
-    }
 
-    setVirtualInput(key, isPressed);
-  };
+      lookAnimFrame.current = requestAnimationFrame(loop);
+    };
 
-  const handleSneakToggle = (e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    toggleVirtualInput('sneak');
-  };
-
-  const handleSprintToggle = (e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const nextSprint = !isSprintActive;
-    setIsSprintActive(nextSprint);
-    setVirtualInput('sprint', nextSprint);
-  };
-
-  const handleDropItem = (e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    // Dispatch drop event or trigger store action
-    window.dispatchEvent(new CustomEvent('mobile-drop-item', { detail: { dropAll: false } }));
-  };
-
-  const handleSwapOffhand = (e: React.TouchEvent | React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    swapOffhand();
-  };
-
-  // Dedicated touch look drag handling
-  const handleLookTouchStart = useCallback((e: TouchEvent) => {
-    // Only capture if not already tracking a look touch
-    if (lookTouchId.current !== null) return;
-
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      const touch = e.changedTouches[i];
-      const target = touch.target as HTMLElement | null;
-      // Do not capture touch if it originated from a button or UI control
-      if (target?.closest('[data-mobile-control="true"]')) continue;
-
-      // Look zone is active across the screen outside controls
-      lookTouchId.current = touch.identifier;
-      lastLookPos.current = { x: touch.clientX, y: touch.clientY };
-      break;
-    }
-  }, []);
-
-  const handleLookTouchMove = useCallback((e: TouchEvent) => {
-    if (lookTouchId.current === null || !lastLookPos.current) return;
-
-    for (let i = 0; i < e.touches.length; i++) {
-      const touch = e.touches[i];
-      if (touch.identifier === lookTouchId.current) {
-        const deltaX = touch.clientX - lastLookPos.current.x;
-        const deltaY = touch.clientY - lastLookPos.current.y;
-
-        lastLookPos.current = { x: touch.clientX, y: touch.clientY };
-
-        if (onLookRotate) {
-          onLookRotate(deltaX, deltaY);
-        } else {
-          // Fallback custom event
-          window.dispatchEvent(
-            new CustomEvent('mobile-camera-look', { detail: { deltaX, deltaY } })
-          );
-        }
-        break;
-      }
-    }
-  }, [onLookRotate]);
-
-  const handleLookTouchEnd = useCallback((e: TouchEvent) => {
-    if (lookTouchId.current === null) return;
-
-    for (let i = 0; i < e.changedTouches.length; i++) {
-      if (e.changedTouches[i].identifier === lookTouchId.current) {
-        lookTouchId.current = null;
-        lastLookPos.current = null;
-        break;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isMobile || isPaused || isInventoryOpen) return;
-
-    window.addEventListener('touchstart', handleLookTouchStart, { passive: false });
-    window.addEventListener('touchmove', handleLookTouchMove, { passive: false });
-    window.addEventListener('touchend', handleLookTouchEnd, { passive: false });
-    window.addEventListener('touchcancel', handleLookTouchEnd, { passive: false });
+    lookAnimFrame.current = requestAnimationFrame(loop);
 
     return () => {
-      window.removeEventListener('touchstart', handleLookTouchStart);
-      window.removeEventListener('touchmove', handleLookTouchMove);
-      window.removeEventListener('touchend', handleLookTouchEnd);
-      window.removeEventListener('touchcancel', handleLookTouchEnd);
+      active = false;
+      if (lookAnimFrame.current) {
+        cancelAnimationFrame(lookAnimFrame.current);
+      }
     };
-  }, [isMobile, isPaused, isInventoryOpen, handleLookTouchStart, handleLookTouchMove, handleLookTouchEnd]);
+  }, [onLookRotate]);
+
+  // Clean up when pausing or opening inventory
+  useEffect(() => {
+    if (isPaused || isInventoryOpen) {
+      // Cancel active gestures
+      if (gestureTouch.current) {
+        if (gestureTouch.current.timer) clearTimeout(gestureTouch.current.timer);
+        if (gestureTouch.current.isMining) {
+          setVirtualInput('mine', false);
+        }
+        gestureTouch.current = null;
+      }
+      // Reset joysticks
+      leftTouchId.current = null;
+      rightTouchId.current = null;
+      setLeftKnobPos({ x: 0, y: 0 });
+      setRightKnobPos({ x: 0, y: 0 });
+      lookVelocity.current = { x: 0, y: 0 };
+      setJoystickMove(0, 0);
+      setVirtualInput('sprint', false);
+      setVirtualInput('jump', false);
+    }
+  }, [isPaused, isInventoryOpen, setJoystickMove, setVirtualInput]);
+
+  // --------------------------------------------------------------------------
+  // 1. LEFT (MOVE) JOYSTICK HANDLERS
+  // --------------------------------------------------------------------------
+  const handleLeftTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (leftTouchId.current !== null) return;
+
+    const touch = e.changedTouches[0];
+    leftTouchId.current = touch.identifier;
+
+    if (leftBaseRef.current) {
+      const rect = leftBaseRef.current.getBoundingClientRect();
+      leftCenter.current = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+    }
+
+    handleLeftMove(touch.clientX, touch.clientY);
+  };
+
+  const handleLeftMove = (clientX: number, clientY: number) => {
+    const rawDx = clientX - leftCenter.current.x;
+    const rawDy = clientY - leftCenter.current.y;
+    const dist = Math.hypot(rawDx, rawDy);
+
+    const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
+    const angle = Math.atan2(rawDy, rawDx);
+
+    const knobX = Math.cos(angle) * clampedDist;
+    const knobY = Math.sin(angle) * clampedDist;
+
+    setLeftKnobPos({ x: knobX, y: knobY });
+
+    // Normalized input (-1 to 1)
+    const normX = knobX / JOYSTICK_MAX_RADIUS;
+    const normY = -knobY / JOYSTICK_MAX_RADIUS; // up on screen is positive forward
+
+    setJoystickMove(normX, normY);
+
+    // Sprint detection: double-tap forward or pushing all the way forward (> 0.85)
+    if (normY > 0.85) {
+      setVirtualInput('sprint', true);
+    } else if (normY > 0.4) {
+      const now = performance.now();
+      if (now - lastForwardTapTime.current < 300) {
+        setVirtualInput('sprint', true);
+      }
+      lastForwardTapTime.current = now;
+    } else {
+      setVirtualInput('sprint', false);
+    }
+  };
+
+  const handleLeftTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === leftTouchId.current) {
+        leftTouchId.current = null;
+        setLeftKnobPos({ x: 0, y: 0 });
+        setJoystickMove(0, 0);
+        setVirtualInput('sprint', false);
+        break;
+      }
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 2. RIGHT (LOOK) JOYSTICK HANDLERS
+  // --------------------------------------------------------------------------
+  const handleRightTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (rightTouchId.current !== null) return;
+
+    const touch = e.changedTouches[0];
+    rightTouchId.current = touch.identifier;
+
+    if (rightBaseRef.current) {
+      const rect = rightBaseRef.current.getBoundingClientRect();
+      rightCenter.current = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
+    }
+
+    handleRightMove(touch.clientX, touch.clientY);
+  };
+
+  const handleRightMove = (clientX: number, clientY: number) => {
+    const rawDx = clientX - rightCenter.current.x;
+    const rawDy = clientY - rightCenter.current.y;
+    const dist = Math.hypot(rawDx, rawDy);
+
+    const clampedDist = Math.min(dist, JOYSTICK_MAX_RADIUS);
+    const angle = Math.atan2(rawDy, rawDx);
+
+    const knobX = Math.cos(angle) * clampedDist;
+    const knobY = Math.sin(angle) * clampedDist;
+
+    setRightKnobPos({ x: knobX, y: knobY });
+
+    // Look rotation velocity
+    const normX = knobX / JOYSTICK_MAX_RADIUS;
+    const normY = knobY / JOYSTICK_MAX_RADIUS;
+
+    lookVelocity.current = {
+      x: normX,
+      y: normY,
+    };
+  };
+
+  const handleRightTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === rightTouchId.current) {
+        rightTouchId.current = null;
+        setRightKnobPos({ x: 0, y: 0 });
+        lookVelocity.current = { x: 0, y: 0 };
+        break;
+      }
+    }
+  };
+
+  // Window-level touch move & end listeners for active joystick drags
+  useEffect(() => {
+    const onWindowTouchMove = (e: TouchEvent) => {
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
+        if (touch.identifier === leftTouchId.current) {
+          handleLeftMove(touch.clientX, touch.clientY);
+        } else if (touch.identifier === rightTouchId.current) {
+          handleRightMove(touch.clientX, touch.clientY);
+        }
+      }
+    };
+
+    const onWindowTouchEnd = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === leftTouchId.current) {
+          leftTouchId.current = null;
+          setLeftKnobPos({ x: 0, y: 0 });
+          setJoystickMove(0, 0);
+          setVirtualInput('sprint', false);
+        }
+        if (touch.identifier === rightTouchId.current) {
+          rightTouchId.current = null;
+          setRightKnobPos({ x: 0, y: 0 });
+          lookVelocity.current = { x: 0, y: 0 };
+        }
+      }
+    };
+
+    window.addEventListener('touchmove', onWindowTouchMove, { passive: false });
+    window.addEventListener('touchend', onWindowTouchEnd);
+    window.addEventListener('touchcancel', onWindowTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchmove', onWindowTouchMove);
+      window.removeEventListener('touchend', onWindowTouchEnd);
+      window.removeEventListener('touchcancel', onWindowTouchEnd);
+    };
+  }, [setJoystickMove, setVirtualInput]);
+
+  // --------------------------------------------------------------------------
+  // 3. GESTURE-BASED BLOCK INTERACTION (HOLD TO MINE, TAP TO PLACE, DRAG TO LOOK)
+  // --------------------------------------------------------------------------
+  const handleGestureTouchStart = useCallback(
+    (e: TouchEvent) => {
+      if (!isMobile || isPaused || isInventoryOpen) return;
+      if (gestureTouch.current !== null) return;
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const target = touch.target as HTMLElement | null;
+
+        // Ignore touches that originated on interactive UI buttons or joysticks
+        if (target?.closest('[data-mobile-control="true"]')) continue;
+
+        const touchId = touch.identifier;
+        const startX = touch.clientX;
+        const startY = touch.clientY;
+        const startTime = performance.now();
+
+        // Start long-press timer to trigger block mining
+        const timer = setTimeout(() => {
+          if (gestureTouch.current && gestureTouch.current.id === touchId) {
+            if (!gestureTouch.current.hasMoved) {
+              gestureTouch.current.isMining = true;
+              setVirtualInput('mine', true);
+            }
+          }
+        }, LONG_PRESS_THRESHOLD_MS);
+
+        gestureTouch.current = {
+          id: touchId,
+          startX,
+          startY,
+          lastX: startX,
+          lastY: startY,
+          startTime,
+          hasMoved: false,
+          isMining: false,
+          timer,
+        };
+        break;
+      }
+    },
+    [isMobile, isPaused, isInventoryOpen, setVirtualInput]
+  );
+
+  const handleGestureTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (!gestureTouch.current) return;
+
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
+        if (touch.identifier === gestureTouch.current.id) {
+          const dx = touch.clientX - gestureTouch.current.startX;
+          const dy = touch.clientY - gestureTouch.current.startY;
+          const totalDist = Math.hypot(dx, dy);
+
+          if (totalDist > TAP_MOVEMENT_THRESHOLD) {
+            gestureTouch.current.hasMoved = true;
+            if (gestureTouch.current.timer) {
+              clearTimeout(gestureTouch.current.timer);
+              gestureTouch.current.timer = null;
+            }
+            if (gestureTouch.current.isMining) {
+              // Cancel mining if dragged significantly
+              gestureTouch.current.isMining = false;
+              setVirtualInput('mine', false);
+            }
+
+            // Drag-to-look camera rotation
+            const deltaX = touch.clientX - gestureTouch.current.lastX;
+            const deltaY = touch.clientY - gestureTouch.current.lastY;
+
+            gestureTouch.current.lastX = touch.clientX;
+            gestureTouch.current.lastY = touch.clientY;
+
+            window.dispatchEvent(
+              new CustomEvent('mobile-camera-look', {
+                detail: { deltaX, deltaY },
+              })
+            );
+            onLookRotate?.(deltaX, deltaY);
+          }
+          break;
+        }
+      }
+    },
+    [onLookRotate, setVirtualInput]
+  );
+
+  const handleGestureTouchEnd = useCallback(
+    (e: TouchEvent) => {
+      if (!gestureTouch.current) return;
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === gestureTouch.current.id) {
+          const current = gestureTouch.current;
+          if (current.timer) {
+            clearTimeout(current.timer);
+          }
+
+          if (current.isMining) {
+            // Finger lifted after mining
+            current.isMining = false;
+            setVirtualInput('mine', false);
+          } else if (!current.hasMoved) {
+            const elapsed = performance.now() - current.startTime;
+            if (elapsed < LONG_PRESS_THRESHOLD_MS) {
+              // Clean short tap on block: place selected block from hotbar!
+              window.dispatchEvent(new CustomEvent('mobile-place-block'));
+            }
+          }
+
+          gestureTouch.current = null;
+          break;
+        }
+      }
+    },
+    [setVirtualInput]
+  );
+
+  useEffect(() => {
+    window.addEventListener('touchstart', handleGestureTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleGestureTouchMove, { passive: false });
+    window.addEventListener('touchend', handleGestureTouchEnd);
+    window.addEventListener('touchcancel', handleGestureTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleGestureTouchStart);
+      window.removeEventListener('touchmove', handleGestureTouchMove);
+      window.removeEventListener('touchend', handleGestureTouchEnd);
+      window.removeEventListener('touchcancel', handleGestureTouchEnd);
+    };
+  }, [handleGestureTouchStart, handleGestureTouchMove, handleGestureTouchEnd]);
 
   if (!isMobile || isPaused || isInventoryOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 pointer-events-none z-30 select-none overflow-hidden"
-      style={{ touchAction: 'none' }}
-    >
-      {/* 1. TOP BAR: Pause button, Inventory button, and Status indicators */}
-      <header className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none">
-        {/* Left: Quick Actions & Status */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Pause Button */}
-          <button
-            id="mobile-pause-btn"
-            data-mobile-control="true"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPaused(true);
-            }}
-            onTouchEnd={(e) => {
-              e.stopPropagation();
-              setPaused(true);
-            }}
-            className="w-12 h-12 bg-black/50 active:bg-black/75 rounded-lg border-2 border-white/60 text-white flex items-center justify-center shadow-lg cursor-pointer backdrop-blur-xs transition-transform active:scale-95"
-            aria-label="Pause Game"
-          >
-            <Pause className="w-6 h-6 fill-white" />
-          </button>
-
-          {/* Sneak & Sprint status badges */}
-          {virtualInputs.sneak && (
-            <span className="px-2.5 py-1 bg-black/60 rounded border border-white/40 text-xs font-bold text-yellow-300">
-              SNEAKING
-            </span>
-          )}
-          {virtualInputs.sprint && (
-            <span className="px-2.5 py-1 bg-black/60 rounded border border-white/40 text-xs font-bold text-sky-300">
-              SPRINTING
-            </span>
-          )}
-        </div>
-
-        {/* Right: Inventory button */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <button
-            id="mobile-inventory-btn"
-            data-mobile-control="true"
-            onClick={(e) => {
-              e.stopPropagation();
-              setInventoryOpen(true);
-            }}
-            onTouchEnd={(e) => {
-              e.stopPropagation();
-              setInventoryOpen(true);
-            }}
-            className="w-12 h-12 bg-black/50 active:bg-black/75 rounded-lg border-2 border-white/60 text-white flex items-center justify-center shadow-lg cursor-pointer backdrop-blur-xs transition-transform active:scale-95"
-            aria-label="Open Inventory"
-          >
-            <Backpack className="w-6 h-6" />
-          </button>
-        </div>
-      </header>
-
-      {/* 2. BOTTOM-LEFT: Classic Minecraft D-Pad Controls */}
-      <div 
-        className="absolute bottom-6 left-6 pointer-events-auto flex flex-col items-center select-none"
-        data-mobile-control="true"
-        style={{ width: '168px', height: '168px' }}
-      >
-        {/* Sprint Toggle Pill above D-Pad */}
+    <div className="fixed inset-0 pointer-events-none z-30 select-none overflow-hidden touch-none">
+      {/* 1. TOP-LEFT: Pause Button */}
+      <div className="absolute top-3.5 left-3.5 pointer-events-auto" data-mobile-control="true">
         <button
-          id="mobile-sprint-btn"
+          id="mobile-pause-btn"
           data-mobile-control="true"
-          onClick={handleSprintToggle}
-          onTouchEnd={handleSprintToggle}
-          className={`absolute -top-11 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-white/50 backdrop-blur-xs transition-all ${
-            isSprintActive 
-              ? 'bg-amber-500 text-black border-amber-300 shadow-md scale-105' 
-              : 'bg-black/45 text-white/80'
-          }`}
+          onClick={() => setPaused(true)}
+          className="w-11 h-11 bg-black/45 active:bg-black/75 rounded-xl border-2 border-white/60 flex items-center justify-center text-white backdrop-blur-xs shadow-lg transition-transform active:scale-95 cursor-pointer"
+          title="Pause Game"
+          aria-label="Pause Game"
         >
-          <Zap className={`w-3.5 h-3.5 ${isSprintActive ? 'fill-current' : ''}`} />
-          <span>SPRINT</span>
+          <Pause className="w-5 h-5 fill-white" />
+        </button>
+      </div>
+
+      {/* 2. BOTTOM-LEFT: Movement Joystick & Sneak Toggle */}
+      <div className="absolute bottom-6 left-6 pointer-events-auto flex flex-col items-center gap-3">
+        {/* Sneak / Crouch Toggle Button */}
+        <button
+          id="mobile-sneak-toggle-btn"
+          data-mobile-control="true"
+          onClick={() => toggleVirtualInput('sneak')}
+          className={`w-11 h-11 rounded-full border-2 border-white/60 flex flex-col items-center justify-center transition-all shadow-md active:scale-95 cursor-pointer ${
+            virtualInputs.sneak
+              ? 'bg-amber-400 text-black border-amber-200'
+              : 'bg-black/50 text-white/90 border-white/50'
+          }`}
+          title="Sneak / Crouch Toggle"
+          aria-label="Sneak Toggle"
+        >
+          <UserCheck className="w-5 h-5 stroke-[2.2]" />
+          <span className="text-[8px] font-mono font-bold leading-none mt-0.5">SNEAK</span>
         </button>
 
-        {/* D-Pad 3x3 Grid */}
-        <div className="relative w-full h-full">
-          {/* UP / FORWARD */}
-          <button
-            id="mobile-dpad-up"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('forward', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('forward', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('forward', false, e)}
-            className={`absolute top-0 left-14 w-14 h-14 bg-black/45 active:bg-white/30 rounded-t-xl border-t-2 border-x-2 border-white/50 flex items-center justify-center text-white transition-colors ${
-              virtualInputs.forward ? 'bg-white/35 scale-95' : ''
-            }`}
-          >
-            <ChevronUp className="w-8 h-8" />
-          </button>
+        {/* Movement Joystick Base */}
+        <div
+          id="mobile-left-joystick"
+          ref={leftBaseRef}
+          data-mobile-control="true"
+          onTouchStart={handleLeftTouchStart}
+          onTouchEnd={handleLeftTouchEnd}
+          onTouchCancel={handleLeftTouchEnd}
+          className="relative w-28 h-28 rounded-full bg-black/35 border-2 border-white/40 flex items-center justify-center backdrop-blur-xs shadow-xl touch-none"
+        >
+          {/* Subtle directional indicators */}
+          <div className="absolute inset-2 rounded-full border border-dashed border-white/20 pointer-events-none" />
+          <div className="absolute top-1.5 w-1.5 h-1.5 rounded-full bg-white/40 pointer-events-none" />
+          <div className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-white/40 pointer-events-none" />
+          <div className="absolute left-1.5 w-1.5 h-1.5 rounded-full bg-white/40 pointer-events-none" />
+          <div className="absolute right-1.5 w-1.5 h-1.5 rounded-full bg-white/40 pointer-events-none" />
 
-          {/* DOWN / BACKWARD */}
-          <button
-            id="mobile-dpad-down"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('backward', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('backward', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('backward', false, e)}
-            className={`absolute bottom-0 left-14 w-14 h-14 bg-black/45 active:bg-white/30 rounded-b-xl border-b-2 border-x-2 border-white/50 flex items-center justify-center text-white transition-colors ${
-              virtualInputs.backward ? 'bg-white/35 scale-95' : ''
-            }`}
+          {/* Movable Thumb Knob */}
+          <div
+            className="w-13 h-13 rounded-full bg-white/80 border-2 border-white shadow-lg flex items-center justify-center transition-transform duration-75"
+            style={{
+              transform: `translate(${leftKnobPos.x}px, ${leftKnobPos.y}px)`,
+            }}
           >
-            <ChevronDown className="w-8 h-8" />
-          </button>
-
-          {/* LEFT / STRAFE LEFT */}
-          <button
-            id="mobile-dpad-left"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('left', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('left', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('left', false, e)}
-            className={`absolute top-14 left-0 w-14 h-14 bg-black/45 active:bg-white/30 rounded-l-xl border-l-2 border-y-2 border-white/50 flex items-center justify-center text-white transition-colors ${
-              virtualInputs.left ? 'bg-white/35 scale-95' : ''
-            }`}
-          >
-            <ChevronLeft className="w-8 h-8" />
-          </button>
-
-          {/* RIGHT / STRAFE RIGHT */}
-          <button
-            id="mobile-dpad-right"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('right', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('right', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('right', false, e)}
-            className={`absolute top-14 right-0 w-14 h-14 bg-black/45 active:bg-white/30 rounded-r-xl border-r-2 border-y-2 border-white/50 flex items-center justify-center text-white transition-colors ${
-              virtualInputs.right ? 'bg-white/35 scale-95' : ''
-            }`}
-          >
-            <ChevronRight className="w-8 h-8" />
-          </button>
-
-          {/* CENTER: Sneak / Crouch Toggle */}
-          <button
-            id="mobile-dpad-center-sneak"
-            data-mobile-control="true"
-            onClick={handleSneakToggle}
-            onTouchEnd={handleSneakToggle}
-            className={`absolute top-14 left-14 w-14 h-14 flex items-center justify-center border border-white/40 transition-colors ${
-              virtualInputs.sneak ? 'bg-yellow-500/80 text-black' : 'bg-black/60 text-white'
-            }`}
-            title="Sneak / Crouch Toggle"
-          >
-            <UserCheck className="w-6 h-6" />
-          </button>
+            <div className="w-5 h-5 rounded-full bg-stone-700/60" />
+          </div>
         </div>
       </div>
 
-      {/* 3. BOTTOM-RIGHT: Action Controls (Jump, Mine, Place, Swap Offhand, Drop) */}
-      <div 
-        className="absolute bottom-6 right-6 pointer-events-auto flex flex-col items-end gap-3 select-none"
-        data-mobile-control="true"
-      >
-        {/* Secondary Actions Row: Drop & Swap Offhand */}
-        <div className="flex items-center gap-3">
-          {/* Drop Item (Q) */}
-          <button
-            id="mobile-drop-btn"
-            data-mobile-control="true"
-            onClick={handleDropItem}
-            onTouchEnd={handleDropItem}
-            className="w-11 h-11 bg-black/45 active:bg-white/30 rounded-full border-2 border-white/50 flex flex-col items-center justify-center text-white backdrop-blur-xs transition-transform active:scale-95 shadow"
-            title="Drop Item"
-          >
-            <ArrowDownToLine className="w-5 h-5" />
-            <span className="text-[9px] font-mono leading-none">DROP</span>
-          </button>
-
-          {/* Swap Offhand (F) */}
-          <button
-            id="mobile-swap-offhand-btn"
-            data-mobile-control="true"
-            onClick={handleSwapOffhand}
-            onTouchEnd={handleSwapOffhand}
-            className="w-11 h-11 bg-black/45 active:bg-white/30 rounded-full border-2 border-white/50 flex flex-col items-center justify-center text-white backdrop-blur-xs transition-transform active:scale-95 shadow"
-            title="Swap Offhand"
-          >
-            <Shield className="w-5 h-5" />
-            <span className="text-[9px] font-mono leading-none">OFF</span>
-          </button>
-        </div>
-
-        {/* Primary Action Row: Mine & Place */}
-        <div className="flex items-center gap-3">
-          {/* Place Block / Use Item Button */}
-          <button
-            id="mobile-place-btn"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('place', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('place', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('place', false, e)}
-            className={`w-14 h-14 bg-emerald-900/60 active:bg-emerald-600/80 rounded-2xl border-2 border-emerald-400 text-white flex flex-col items-center justify-center shadow-lg transition-transform ${
-              virtualInputs.place ? 'bg-emerald-600 scale-95 border-emerald-200' : ''
-            }`}
-            title="Place Block"
-          >
-            <Box className="w-6 h-6" />
-            <span className="text-[9px] font-bold font-mono">PLACE</span>
-          </button>
-
-          {/* Mine / Break Block Button */}
-          <button
-            id="mobile-mine-btn"
-            data-mobile-control="true"
-            onTouchStart={(e) => handleButtonTouch('mine', true, e)}
-            onTouchEnd={(e) => handleButtonTouch('mine', false, e)}
-            onTouchCancel={(e) => handleButtonTouch('mine', false, e)}
-            className={`w-14 h-14 bg-rose-900/60 active:bg-rose-600/80 rounded-2xl border-2 border-rose-400 text-white flex flex-col items-center justify-center shadow-lg transition-transform ${
-              virtualInputs.mine ? 'bg-rose-600 scale-95 border-rose-200' : ''
-            }`}
-            title="Break Block"
-          >
-            <Pickaxe className="w-6 h-6" />
-            <span className="text-[9px] font-bold font-mono">MINE</span>
-          </button>
-        </div>
-
-        {/* Large Jump Button */}
+      {/* 3. BOTTOM-RIGHT: Jump Button & Look Joystick */}
+      <div className="absolute bottom-6 right-6 pointer-events-auto flex flex-col items-center gap-3">
+        {/* Jump Button */}
         <button
           id="mobile-jump-btn"
           data-mobile-control="true"
-          onTouchStart={(e) => handleButtonTouch('jump', true, e)}
-          onTouchEnd={(e) => handleButtonTouch('jump', false, e)}
-          onTouchCancel={(e) => handleButtonTouch('jump', false, e)}
-          className={`w-16 h-16 bg-black/50 active:bg-white/30 rounded-full border-3 border-white/70 flex items-center justify-center text-white shadow-xl transition-transform ${
-            virtualInputs.jump ? 'bg-white/40 scale-95' : ''
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            setVirtualInput('jump', true);
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            setVirtualInput('jump', false);
+          }}
+          onTouchCancel={(e) => {
+            e.stopPropagation();
+            setVirtualInput('jump', false);
+          }}
+          onMouseDown={() => setVirtualInput('jump', true)}
+          onMouseUp={() => setVirtualInput('jump', false)}
+          className={`w-14 h-14 rounded-full border-2 border-white/70 flex items-center justify-center text-white shadow-xl transition-transform active:scale-95 cursor-pointer ${
+            virtualInputs.jump ? 'bg-white/50 scale-95' : 'bg-black/50 active:bg-white/30'
           }`}
           title="Jump"
+          aria-label="Jump"
         >
-          <ArrowUp className="w-9 h-9 stroke-[2.5]" />
+          <ArrowUp className="w-8 h-8 stroke-[2.5]" />
         </button>
+
+        {/* Look Joystick Base */}
+        <div
+          id="mobile-right-joystick"
+          ref={rightBaseRef}
+          data-mobile-control="true"
+          onTouchStart={handleRightTouchStart}
+          onTouchEnd={handleRightTouchEnd}
+          onTouchCancel={handleRightTouchEnd}
+          className="relative w-28 h-28 rounded-full bg-black/35 border-2 border-white/40 flex items-center justify-center backdrop-blur-xs shadow-xl touch-none"
+        >
+          <div className="absolute inset-2 rounded-full border border-dashed border-white/20 pointer-events-none" />
+          {/* Movable Thumb Knob */}
+          <div
+            className="w-13 h-13 rounded-full bg-white/80 border-2 border-white shadow-lg flex items-center justify-center transition-transform duration-75"
+            style={{
+              transform: `translate(${rightKnobPos.x}px, ${rightKnobPos.y}px)`,
+            }}
+          >
+            <div className="w-5 h-5 rounded-full bg-stone-700/60" />
+          </div>
+        </div>
       </div>
 
-      {/* Look Hint Pill (fades away after a few seconds) */}
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 pointer-events-none opacity-60 text-center">
-        <span className="text-[11px] text-white/90 bg-black/40 px-3 py-1 rounded-full border border-white/20 font-mono">
-          Drag right side to look around
+      {/* Subtle Hint Bar at top for first-time touch discovery */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-none opacity-75 text-center">
+        <span className="text-[11px] text-white/90 bg-black/45 px-3 py-1 rounded-full border border-white/20 font-mono tracking-tight shadow">
+          Tap block: Place &bull; Hold block: Mine &bull; Swipe: Look
         </span>
       </div>
     </div>
