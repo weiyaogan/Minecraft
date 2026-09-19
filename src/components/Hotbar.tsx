@@ -100,7 +100,7 @@ export function Hotbar() {
           </div>
         )}
 
-        <div className="flex flex-col gap-1 items-center">
+        <div className="flex flex-col gap-[2px] items-center">
           {/* Status Bars: Health (Left), Level (Center), Hunger (Right), XP Bar (Below) */}
           <StatusBars />
 
@@ -108,7 +108,7 @@ export function Hotbar() {
           <div 
             className="flex rounded-[2px]"
             style={{
-              backgroundColor: 'rgba(21, 26, 33, 0.88)',
+              backgroundColor: 'rgba(21, 26, 33, 0.92)',
               border: '1.5px solid #2a3442',
               padding: '2px',
               gap: '2px',
