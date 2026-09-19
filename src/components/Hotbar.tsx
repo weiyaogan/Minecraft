@@ -130,7 +130,7 @@ export function Hotbar() {
       </div>
 
       {/* Main HUD Bar Anchor Container: Flat, Centered, Matching image.png */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex items-end gap-2 max-w-full px-2 scale-90 sm:scale-100 origin-center">
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex items-end gap-2 max-w-full px-2 origin-bottom">
         {/* Offhand Slot (Optional) */}
         {offhand?.type && (
           <div
