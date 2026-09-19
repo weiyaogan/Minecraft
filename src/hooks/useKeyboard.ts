@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 
 export function useKeyboard() {
+  const isDoubleTapSprint = useRef(false);
+  const lastWPressTime = useRef(0);
+
   const keys = useRef({
     forward: false,
     backward: false,
@@ -10,10 +13,15 @@ export function useKeyboard() {
     shift: false,
     sprint: false,
     sprintKey: false,
+    resetDoubleTap: () => {
+      isDoubleTapSprint.current = false;
+    },
+    cancelSprint: () => {
+      isDoubleTapSprint.current = false;
+      keys.current.sprint = false;
+      keys.current.sprintKey = false;
+    },
   });
-
-  const lastWPressTime = useRef(0);
-  const isDoubleTapSprint = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

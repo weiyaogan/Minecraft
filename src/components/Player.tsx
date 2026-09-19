@@ -157,6 +157,10 @@ export function Player() {
   const isMobile = useWorldStore(state => state.isMobile);
   const isPaused = useWorldStore(state => state.isPaused);
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
+  const hunger = useWorldStore(state => state.hunger);
+  const isBlocking = useWorldStore(state => state.isBlocking);
+  const isEatingOrDrinking = useWorldStore(state => state.isEatingOrDrinking);
+  const isUsingItem = useWorldStore(state => state.isUsingItem);
   const perspectiveMode = useWorldStore(state => state.perspectiveMode);
   const virtualInputs = useWorldStore(state => state.virtualInputs);
   const joystickMove = useWorldStore(state => state.joystickMove);
@@ -166,6 +170,26 @@ export function Player() {
   const playerPitch = useRef(0);
   const thirdPersonCameraPosition = useRef(new Vector3());
   const currentFovMultiplier = useRef(1.0);
+
+  // Listen for sprint attack against mobs/entities per Minecraft Java Edition rules
+  useEffect(() => {
+    const handleSprintAttack = () => {
+      if (isSprinting.current) {
+        isSprinting.current = false;
+        keys.cancelSprint();
+        if (useWorldStore.getState().virtualInputs.sprint) {
+          useWorldStore.getState().setVirtualInput('sprint', false);
+        }
+      }
+    };
+
+    window.addEventListener('player-sprint-attack', handleSprintAttack);
+    window.addEventListener('attack-entity', handleSprintAttack);
+    return () => {
+      window.removeEventListener('player-sprint-attack', handleSprintAttack);
+      window.removeEventListener('attack-entity', handleSprintAttack);
+    };
+  }, [keys]);
 
   const handleLook = useCallback((deltaYaw: number, deltaPitch: number) => {
     playerYaw.current = normalizeAngle(playerYaw.current + deltaYaw);
@@ -309,10 +333,24 @@ export function Player() {
     }
 
     // --- 4.5 SPRINT LOGIC (Minecraft Java Edition authentic behavior) ---
-    if (wantsToSneak || !inputForward || isInventoryOpen || isPaused || !canControl) {
-      isSprinting.current = false;
-      if (virtualInputs.sprint) {
-        useWorldStore.getState().setVirtualInput('sprint', false);
+    // Sprint cancellation conditions:
+    // 1. Releasing the forward movement key / stopping forward movement (!inputForward).
+    // 2. Sneaking (wantsToSneak).
+    // 3. Hunger level drops to 6 or lower (hunger <= 6).
+    // 4. Blocking state (isBlocking).
+    // 5. Eating or drinking / using item (isEatingOrDrinking || isUsingItem).
+    // 6. Inventory open, paused, or control lost.
+    const isConsuming = isEatingOrDrinking || isUsingItem;
+    const isHungerLow = hunger <= 6;
+    const cannotSprint = wantsToSneak || !inputForward || isHungerLow || isBlocking || isConsuming || isInventoryOpen || isPaused || !canControl;
+
+    if (cannotSprint) {
+      if (isSprinting.current) {
+        isSprinting.current = false;
+        keys.cancelSprint();
+        if (virtualInputs.sprint) {
+          useWorldStore.getState().setVirtualInput('sprint', false);
+        }
       }
     } else if (inputSprint) {
       if (!isSprinting.current) {
@@ -341,7 +379,14 @@ export function Player() {
     // --- 5. HORIZONTAL MOVEMENT & EDGE PROTECTION ---
     let dx = 0;
     let dz = 0;
-    const speed = wantsToSneak ? SNEAK_SPEED : (isSprinting.current ? SPRINT_SPEED : NORMAL_SPEED);
+    // Speed according to Java Edition mechanics:
+    // Consuming items slows to 0.2x speed; blocking slows to sneak speed.
+    let speed = wantsToSneak ? SNEAK_SPEED : (isSprinting.current ? SPRINT_SPEED : NORMAL_SPEED);
+    if (isConsuming) {
+      speed = NORMAL_SPEED * 0.2;
+    } else if (isBlocking) {
+      speed = SNEAK_SPEED;
+    }
     
     if (canControl) {
       const forward = inputForward;
@@ -407,6 +452,7 @@ export function Player() {
     const oldPosZ = pos.z;
 
     pos.x += dx;
+    let collidedX = false;
     for (const block of collisionBlocks) {
       const xAABB = getPlayerAABB(pos, currentHeight);
       xAABB.minY += EPSILON;
@@ -415,6 +461,7 @@ export function Player() {
       xAABB.maxZ -= EPSILON;
       
       if (checkIntersection(xAABB, block)) {
+        collidedX = true;
         if (dx > 0) pos.x = block.minX - PLAYER_WIDTH / 2;
         else if (dx < 0) pos.x = block.maxX + PLAYER_WIDTH / 2;
       }
@@ -422,6 +469,7 @@ export function Player() {
 
     // Apply Z movement & collision
     pos.z += dz;
+    let collidedZ = false;
     for (const block of collisionBlocks) {
       const zAABB = getPlayerAABB(pos, currentHeight);
       zAABB.minX += EPSILON;
@@ -430,22 +478,49 @@ export function Player() {
       zAABB.maxY -= EPSILON;
       
       if (checkIntersection(zAABB, block)) {
+        collidedZ = true;
         if (dz > 0) pos.z = block.minZ - PLAYER_WIDTH / 2;
         else if (dz < 0) pos.z = block.maxZ + PLAYER_WIDTH / 2;
       }
     }
 
-    // --- 5.5 SPRINT COLLISION CANCEL ---
-    if (isSprinting.current) {
+    // --- 5.5 SPRINT COLLISION CANCEL (Minecraft Java Edition authentic behavior) ---
+    // In Java Edition, a collision at an angle greater than 8° cancels the sprint.
+    // Low-angle collisions (brushing against a block at <= 8°) do NOT cancel sprinting.
+    if (isSprinting.current && (Math.abs(dx) > EPSILON || Math.abs(dz) > EPSILON)) {
+      let cancelSprintCollision = false;
+
+      // Check collision on X-axis (colliding with a wall face parallel to Z).
+      // Angle of intended horizontal movement relative to the wall surface (Z-axis):
+      if (collidedX) {
+        const angleDegX = Math.atan2(Math.abs(dx), Math.abs(dz)) * (180 / Math.PI);
+        if (angleDegX > 8.0) {
+          cancelSprintCollision = true;
+        }
+      }
+
+      // Check collision on Z-axis (colliding with a wall face parallel to X).
+      // Angle of intended horizontal movement relative to the wall surface (X-axis):
+      if (collidedZ) {
+        const angleDegZ = Math.atan2(Math.abs(dz), Math.abs(dx)) * (180 / Math.PI);
+        if (angleDegZ > 8.0) {
+          cancelSprintCollision = true;
+        }
+      }
+
+      // Corner collision / complete stoppage: both axes blocked from proceeding
       const actualDx = pos.x - oldPosX;
       const actualDz = pos.z - oldPosZ;
-      const blockedX = Math.abs(dx) > EPSILON && Math.abs(actualDx) < 0.0001;
-      const blockedZ = Math.abs(dz) > EPSILON && Math.abs(actualDz) < 0.0001;
-      const primaryX = Math.abs(dx) >= Math.abs(dz);
-      if ((blockedX && primaryX) || (blockedZ && !primaryX)) {
+      if (collidedX && collidedZ && Math.hypot(actualDx, actualDz) < 0.001) {
+        cancelSprintCollision = true;
+      }
+
+      if (cancelSprintCollision) {
         isSprinting.current = false;
-        keys.sprint = false;
-        useWorldStore.getState().setVirtualInput('sprint', false);
+        keys.cancelSprint();
+        if (virtualInputs.sprint) {
+          useWorldStore.getState().setVirtualInput('sprint', false);
+        }
       }
     }
 

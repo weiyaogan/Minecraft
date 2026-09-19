@@ -116,6 +116,18 @@ interface WorldState {
   setPlayerFeetPosition: (pos: Vector3) => void;
   playerHeight: number;
   setPlayerHeight: (height: number) => void;
+
+  // Minecraft Java Edition player states affecting sprint
+  hunger: number;
+  setHunger: (hunger: number) => void;
+  isBlocking: boolean;
+  setIsBlocking: (isBlocking: boolean) => void;
+  isEatingOrDrinking: boolean;
+  setIsEatingOrDrinking: (isEatingOrDrinking: boolean) => void;
+  isUsingItem: boolean;
+  setIsUsingItem: (isUsingItem: boolean) => void;
+  attackEntity: (entityId?: string) => void;
+  onSprintAttack: () => void;
 }
 
 const defaultVirtualInputs: VirtualInputs = {
@@ -622,6 +634,25 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   setPlayerFeetPosition: (pos) => set((state) => (state.playerFeetPosition.equals(pos) ? state : { playerFeetPosition: pos })),
   playerHeight: 1.8,
   setPlayerHeight: (height) => set((state) => (state.playerHeight === height ? state : { playerHeight: height })),
+
+  hunger: 20,
+  setHunger: (hunger) => set({ hunger: Math.max(0, Math.min(20, hunger)) }),
+  isBlocking: false,
+  setIsBlocking: (isBlocking) => set({ isBlocking }),
+  isEatingOrDrinking: false,
+  setIsEatingOrDrinking: (isEatingOrDrinking) => set({ isEatingOrDrinking }),
+  isUsingItem: false,
+  setIsUsingItem: (isUsingItem) => set({ isUsingItem }),
+  attackEntity: (entityId) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('player-sprint-attack', { detail: { entityId } }));
+    }
+  },
+  onSprintAttack: () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('player-sprint-attack'));
+    }
+  },
 }));
 
 // Automatic input method adaptation (Touch vs Desktop Keyboard)
