@@ -450,7 +450,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     );
 
     const newItem: DroppedItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: 'item_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9) + '_' + Math.floor(Math.random() * 10000),
       type: slot.type,
       position,
       velocity,
@@ -480,7 +480,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       const dropCount = dropAll ? state.cursorItem.count : 1;
       const remaining = state.cursorItem.count - dropCount;
       const newItem: DroppedItem = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: 'item_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9) + '_' + Math.floor(Math.random() * 10000),
         type: state.cursorItem.type,
         position,
         velocity,
@@ -505,7 +505,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     arr[index] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
 
     const newItem: DroppedItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: 'item_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9) + '_' + Math.floor(Math.random() * 10000),
       type: slot.type,
       position,
       velocity,
@@ -525,7 +525,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   droppedItems: [],
   addDroppedItem: (type, position, count, velocity = [0, 2, 0], pickupDelay = 0.1) => set((state) => ({
     droppedItems: [...state.droppedItems, {
-      id: Math.random().toString(36).substr(2, 9),
+      id: 'item_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9) + '_' + Math.floor(Math.random() * 10000),
       type,
       position,
       velocity,

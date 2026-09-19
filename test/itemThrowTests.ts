@@ -318,4 +318,71 @@ console.log('\n--- Test 9: Verify Q and Ctrl+Q drop quantities without duplicati
   console.log('[PASS] Q and Ctrl+Q and cursor drops strictly preserve item conservation without duplication or loss');
 }
 
-console.log('\n=== ALL 9 ITEM THROWING TESTS PASSED PERFECTLY ===\n');
+// -------------------------------------------------------------
+// TEST 10: CRITICAL CUSTOM RULE - NEVER MERGE THROWN ITEMS
+// -------------------------------------------------------------
+console.log('\n--- Test 10: CRITICAL CUSTOM RULE - NEVER MERGE THROWN ITEMS ---');
+{
+  useWorldStore.setState({
+    hotbar: [
+      { type: 'dirt', count: 64 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+      { type: null, count: 0 },
+    ],
+    selectedHotbarSlot: 0,
+    droppedItems: [],
+  });
+
+  const eyePos = new Vector3(0, 6.62, 0);
+  const lookDir = new Vector3(0, 0, -1);
+
+  // Rapidly throw 5 dirt items at the exact same location and orientation
+  for (let i = 0; i < 5; i++) {
+    useWorldStore.getState().throwCurrentItem(false, eyePos, lookDir);
+  }
+
+  const items = useWorldStore.getState().droppedItems;
+  assert.strictEqual(items.length, 5, 'Must have exactly 5 distinct dropped entities, not merged into 1');
+  
+  for (let i = 0; i < items.length; i++) {
+    assert.strictEqual(items[i].type, 'dirt', `Item ${i} must be dirt`);
+    assert.strictEqual(items[i].count, 1, `Item ${i} must have count 1, never merged/combined`);
+  }
+
+  // Check unique IDs and distinct spawn coordinates
+  const idSet = new Set(items.map(it => it.id));
+  assert.strictEqual(idSet.size, 5, 'Every entity must have a unique ID');
+
+  // Verify same-spawn-position micro-offsets (coordinates are slightly varied, not identical float values)
+  const posStrings = new Set(items.map(it => `${it.position[0].toFixed(5)},${it.position[2].toFixed(5)}`));
+  assert(posStrings.size >= 4, 'Micro-offsets prevent identical pixel/coordinate occupancy for rapid throws');
+
+  console.log('[PASS] 5 identical items thrown at same position remain 5 completely independent entities without merging');
+}
+
+// -------------------------------------------------------------
+// TEST 11: Block drops never merge
+// -------------------------------------------------------------
+console.log('\n--- Test 11: Block drops never merge ---');
+{
+  useWorldStore.setState({ droppedItems: [] });
+
+  // Simulate breaking 3 grass/dirt blocks at adjacent locations
+  useWorldStore.getState().addDroppedItem('dirt', [0, 4, 0], 1, [0, 2, 0], 0.1);
+  useWorldStore.getState().addDroppedItem('dirt', [0, 4, 0.2], 1, [0, 2, 0], 0.1);
+  useWorldStore.getState().addDroppedItem('dirt', [0.1, 4, 0.1], 1, [0, 2, 0], 0.1);
+
+  const blockDrops = useWorldStore.getState().droppedItems;
+  assert.strictEqual(blockDrops.length, 3, '3 block drops produce 3 separate entities');
+  assert(blockDrops.every(b => b.count === 1), 'Every block drop retains its own count of 1 without merging');
+
+  console.log('[PASS] Block drops remain separate entities and never merge');
+}
+
+console.log('\n=== ALL 11 ITEM THROWING TESTS PASSED PERFECTLY ===\n');

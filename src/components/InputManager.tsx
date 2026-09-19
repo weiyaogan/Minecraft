@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { useWorldStore } from '../store';
 import { Vector3 } from 'three';
 
 export function InputManager() {
   const { camera } = useThree();
+  const lastThrowTime = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,6 +39,18 @@ export function InputManager() {
       if (e.code === 'KeyQ') {
         e.preventDefault();
         const dropAll = Boolean(e.ctrlKey || e.metaKey);
+
+        // Minecraft Java style keyboard repetition handling:
+        // Initial press triggers immediately.
+        // Holding Q repeats at ~160ms intervals (Minecraft Java style drop rate).
+        // Ctrl+Q drops the whole stack at once and does not repeat while held.
+        const now = performance.now();
+        if (e.repeat) {
+          if (dropAll) return;
+          if (now - lastThrowTime.current < 160) return;
+        }
+        lastThrowTime.current = now;
+
         const dir = new Vector3();
         camera.getWorldDirection(dir);
         if (!state.isInventoryOpen) {

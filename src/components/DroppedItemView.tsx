@@ -12,7 +12,8 @@ interface Props {
 const itemWidth = 0.25;
 const itemHeight = 0.25;
 
-export const droppedItemPhysicsData = new Map<string, { pos: THREE.Vector3, count: number, age: number, isDead: boolean, isAbsorbing: boolean, type: string }>();
+// Map of active dropped item positions for natural visual separation when resting close together
+export const activeDroppedItemPositions = new Map<string, THREE.Vector3>();
 
 const getItemAABB = (pos: THREE.Vector3) => ({
   minX: pos.x - itemWidth / 2,
@@ -53,14 +54,16 @@ export function DroppedItemView({ item }: Props) {
   const pickupDelay = useRef(item.pickupDelay ?? 0.5);
   const age = useRef(0);
   
+  // Independent visual bobbing phase and subtle rotation rate per entity
   const bobOffset = useMemo(() => Math.random() * Math.PI * 2, []);
+  const rotationRate = useMemo(() => 1.4 + (Math.random() - 0.5) * 0.3, []);
 
   useEffect(() => {
-    droppedItemPhysicsData.set(item.id, { pos: currentPos.current, count: item.count, age: age.current, isDead: false, isAbsorbing: false, type: item.type });
+    activeDroppedItemPositions.set(item.id, currentPos.current);
     return () => {
-      droppedItemPhysicsData.delete(item.id);
+      activeDroppedItemPositions.delete(item.id);
     };
-  }, [item.id, item.count, item.type]);
+  }, [item.id]);
 
   useFrame((_, delta) => {
     if (!meshRef.current || !visualMeshRef.current || isDead.current) return;
@@ -70,46 +73,14 @@ export function DroppedItemView({ item }: Props) {
       pickupDelay.current = Math.max(0, pickupDelay.current - delta);
     }
 
-    // Ticking logic
+    // Ticking logic (20 TPS)
     tickAccumulator.current += delta;
-    while (tickAccumulator.current >= 0.05) { // 20 TPS
+    while (tickAccumulator.current >= 0.05) {
       tickAccumulator.current -= 0.05;
       age.current++;
-      
-      const myData = droppedItemPhysicsData.get(item.id);
-      if (myData) {
-        myData.age = age.current;
-        myData.count = item.count;
-        myData.isAbsorbing = isAbsorbing.current;
-      }
-      
-      // Merging check (every 5 ticks, only if neither item is being collected)
-      if (age.current % 5 === 0 && item.count < 64 && !isAbsorbing.current) {
-        for (const [otherId, otherData] of droppedItemPhysicsData.entries()) {
-          if (otherId !== item.id && !otherData.isDead && !otherData.isAbsorbing && otherData.type === item.type) {
-             // Only older items absorb newer ones to avoid circular merge loops
-             if (age.current > otherData.age || (age.current === otherData.age && item.id > otherId)) {
-               const dist = currentPos.current.distanceTo(otherData.pos);
-               if (dist < 0.8) {
-                 const space = 64 - item.count;
-                 if (space > 0) {
-                   const toTake = Math.min(space, otherData.count);
-                   updateDroppedItem(item.id, item.count + toTake);
-                   otherData.isDead = true; // Mark as dead so it doesn't get picked up elsewhere
-                   if (toTake === otherData.count) {
-                      removeDroppedItem(otherId);
-                   } else {
-                      updateDroppedItem(otherId, otherData.count - toTake);
-                      otherData.isDead = false;
-                   }
-                 }
-               }
-             }
-          }
-        }
-      }
     }
 
+    // Despawn after 5 minutes (6000 ticks)
     if (age.current >= 6000) {
       if (!isDead.current) {
         isDead.current = true;
@@ -118,11 +89,8 @@ export function DroppedItemView({ item }: Props) {
       return;
     }
 
-    const myData = droppedItemPhysicsData.get(item.id);
-    if (myData && myData.isDead) return;
-
     const time = performance.now() / 1000;
-    visualMeshRef.current.rotation.y += delta * 1.5;
+    visualMeshRef.current.rotation.y += delta * rotationRate;
 
     // Physics
     const blocks = useWorldStore.getState().blocks;
@@ -188,6 +156,31 @@ export function DroppedItemView({ item }: Props) {
     if (isGrounded) {
       velocity.current.x *= Math.pow(0.5, delta * 15); // stronger friction on ground
       velocity.current.z *= Math.pow(0.5, delta * 15);
+
+      // Natural subtle separation for grounded items resting close together
+      // Ensures each entity is visibly distinct and models do not visually occupy the exact same pixels
+      if (!isAbsorbing.current) {
+        for (const [otherId, otherPos] of activeDroppedItemPositions.entries()) {
+          if (otherId !== item.id) {
+            const dxOther = currentPos.current.x - otherPos.x;
+            const dzOther = currentPos.current.z - otherPos.z;
+            const distSq = dxOther * dxOther + dzOther * dzOther;
+            if (distSq < 0.0625 && Math.abs(currentPos.current.y - otherPos.y) < 0.5) { // within 0.25 blocks
+              if (distSq > 0.0001) {
+                const dist = Math.sqrt(distSq);
+                const push = (0.25 - dist) * 0.5 * Math.min(delta * 4, 0.1);
+                currentPos.current.x += (dxOther / dist) * push;
+                currentPos.current.z += (dzOther / dist) * push;
+              } else {
+                // Exact coordinate match: subtle deterministic separation
+                const angle = ((item.id.charCodeAt(0) * 41 + item.id.charCodeAt(item.id.length - 1)) % 360) * (Math.PI / 180);
+                currentPos.current.x += Math.cos(angle) * 0.02;
+                currentPos.current.z += Math.sin(angle) * 0.02;
+              }
+            }
+          }
+        }
+      }
     }
 
     if (currentPos.current.y < -25 && !isDead.current) {

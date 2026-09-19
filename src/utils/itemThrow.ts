@@ -167,6 +167,15 @@ export function computeItemThrowSpawnAndVelocity(
     }
   }
 
+  // Same-spawn-position protection: Apply a tiny, imperceptible micro-offset (1-2 cm)
+  // to ensure that rapid repeated throws do not occupy the exact same floating-point coordinates.
+  const microOffsetX = (Math.random() - 0.5) * 0.04;
+  const microOffsetZ = (Math.random() - 0.5) * 0.04;
+  if (!isItemInSolidBlock(selectedX + microOffsetX, selectedY, selectedZ + microOffsetZ, blocks)) {
+    selectedX += microOffsetX;
+    selectedZ += microOffsetZ;
+  }
+
   // Calculate forward launch velocity
   const baseSpeed = 4.8;
   // Natural upward component: +1.0 when looking straight ahead, +1.4 when looking up,
@@ -174,9 +183,9 @@ export function computeItemThrowSpawnAndVelocity(
   const upwardLift = Math.max(0.2, 1.0 + lookDir.y * 0.4);
 
   // Subtle random jitter ensures independent trajectories when multiple items are dropped
-  const jitter = 0.08;
+  const jitter = 0.10;
   const jx = (Math.random() - 0.5) * jitter;
-  const jy = (Math.random() - 0.5) * jitter;
+  const jy = (Math.random() - 0.5) * jitter * 0.6;
   const jz = (Math.random() - 0.5) * jitter;
 
   const vx = lookDir.x * baseSpeed + jx;
