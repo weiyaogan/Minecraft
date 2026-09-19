@@ -40,7 +40,8 @@ export function InputManager() {
         return;
       }
 
-      if (e.code === 'KeyE') {
+      if (e.code === 'KeyE' || e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
         if (state.isInventoryOpen) {
           state.setInventoryOpen(false);
           const canvas = document.querySelector('canvas');

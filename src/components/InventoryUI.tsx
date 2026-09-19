@@ -4,6 +4,7 @@ import { BlockType } from '../world/blocks';
 import { X } from 'lucide-react';
 import { MiniBlock, StackQuantity } from './MiniBlock';
 import { playInventoryClickSound } from '../utils/audio';
+import { INVENTORY_TEXTURE_DATA_URL } from '../assets/inventoryTexture';
 
 const INVENTORY_WIDTH = 352;
 const INVENTORY_HEIGHT = 332;
@@ -11,6 +12,22 @@ const SLOT_SIZE = 34;
 const SLOT_GAP = 2;
 const SLOT_STEP = SLOT_SIZE + SLOT_GAP;
 export const INVENTORY_ITEM_SIZE = 17;
+
+// Preload the inventory texture into GPU memory immediately on module load
+if (typeof window !== 'undefined') {
+  const preloadImg = new Image();
+  preloadImg.src = INVENTORY_TEXTURE_DATA_URL;
+}
+
+const computeInventoryScale = () => {
+  if (typeof window === 'undefined') return 1;
+  const targetWidth = INVENTORY_WIDTH * 1.5;
+  const targetHeight = INVENTORY_HEIGHT * 1.5;
+  const availableWidth = window.innerWidth - 32;
+  const availableHeight = window.innerHeight - 40;
+  const computed = Math.min(1, Math.min(availableWidth / targetWidth, availableHeight / targetHeight));
+  return Math.max(0.55, computed);
+};
 
 export function InventoryUI() {
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
@@ -33,16 +50,11 @@ export function InventoryUI() {
   const draggedSlotsRef = useRef(draggedSlots);
   draggedSlotsRef.current = draggedSlots;
 
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(computeInventoryScale);
 
   useEffect(() => {
     const updateScale = () => {
-      const targetWidth = INVENTORY_WIDTH * 1.5;
-      const targetHeight = INVENTORY_HEIGHT * 1.5;
-      const availableWidth = window.innerWidth - 32;
-      const availableHeight = window.innerHeight - 40;
-      const computedScale = Math.min(1, Math.min(availableWidth / targetWidth, availableHeight / targetHeight));
-      setScale(Math.max(0.55, computedScale));
+      setScale(computeInventoryScale());
     };
 
     updateScale();
@@ -193,16 +205,23 @@ export function InventoryUI() {
         )}
 
         <div
-          className="relative shrink-0 origin-top-left"
+          className="relative shrink-0 origin-top-left overflow-hidden select-none"
           style={{
             width: INVENTORY_WIDTH,
             height: INVENTORY_HEIGHT,
-            backgroundImage: "url('/Inventory.webp')",
+            backgroundColor: '#c6c6c6',
+            backgroundImage: `url(${INVENTORY_TEXTURE_DATA_URL})`,
             backgroundSize: '100% 100%',
             imageRendering: 'pixelated',
             transform: 'scale(1.5)',
           }}
         >
+          <img
+            src={INVENTORY_TEXTURE_DATA_URL}
+            alt="Inventory GUI"
+            className="absolute inset-0 w-full h-full pointer-events-none select-none"
+            style={{ imageRendering: 'pixelated' }}
+          />
           {inventory.map((slot, index) => {
             const row = Math.floor(index / 9);
             const column = index % 9;
