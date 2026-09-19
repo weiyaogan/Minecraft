@@ -222,12 +222,25 @@ export function Player() {
     const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
     playerYaw.current = euler.y;
     playerPitch.current = euler.x;
+
+    return () => {
+      pCam.fov = BASE_FOV;
+      pCam.updateProjectionMatrix();
+    };
   }, [camera]);
 
   useFrame((_, delta) => {
     // Stop all gameplay simulation, movement, gravity, jumping, and falling immediately when paused.
-    // The player remains exactly where they are in mid-air or on ground.
-    if (useWorldStore.getState().isPaused) return;
+    // Ensure FOV cleanly returns to baseline if paused while sprinting.
+    if (useWorldStore.getState().isPaused) {
+      if (currentFovMultiplier.current !== 1.0) {
+        currentFovMultiplier.current = 1.0;
+        const pCam = camera as PerspectiveCamera;
+        pCam.fov = BASE_FOV;
+        pCam.updateProjectionMatrix();
+      }
+      return;
+    }
 
     const dt = Math.min(delta, 0.1); // Cap delta to prevent massive physics spikes
     const pos = feetPosition.current;
@@ -363,17 +376,6 @@ export function Player() {
     } else {
       // Stopped holding sprint / double-tap expired
       isSprinting.current = false;
-    }
-
-    // Smooth Minecraft Java-style FOV expansion
-    const targetMultiplier = isSprinting.current ? SPRINT_FOV_MULTIPLIER : 1.0;
-    // Minecraft Java interpolates FOV smoothly with responsive easing
-    currentFovMultiplier.current += (targetMultiplier - currentFovMultiplier.current) * Math.min(1, 12.0 * dt);
-    const pCam = camera as PerspectiveCamera;
-    const currentFov = BASE_FOV * currentFovMultiplier.current;
-    if (Math.abs(pCam.fov - currentFov) > 0.005) {
-      pCam.fov = currentFov;
-      pCam.updateProjectionMatrix();
     }
 
     // --- 5. HORIZONTAL MOVEMENT & EDGE PROTECTION ---
@@ -597,6 +599,27 @@ export function Player() {
         camera.rotation.set(-playerPitch.current, normalizeAngle(playerYaw.current + Math.PI), 0, 'YXZ');
       }
     }
+
+    // --- 8. MINECRAFT JAVA-STYLE SMOOTH SPRINT FOV EXPANSION & RETURN ---
+    // In Minecraft Java Edition, sprinting expands FOV by 15% (1.15 multiplier).
+    // An exponential damping transition smoothly opens FOV when sprinting and smoothly
+    // contracts it back to the baseline 70° when sprinting stops for any reason.
+    const targetFovMultiplier = isSprinting.current ? SPRINT_FOV_MULTIPLIER : 1.0;
+    const fovTransitionFactor = 1.0 - Math.exp(-12.0 * dt);
+    currentFovMultiplier.current += (targetFovMultiplier - currentFovMultiplier.current) * fovTransitionFactor;
+
+    // Snap to target if negligible difference to avoid unnecessary projection matrix recomputations
+    if (Math.abs(currentFovMultiplier.current - targetFovMultiplier) < 0.0002) {
+      currentFovMultiplier.current = targetFovMultiplier;
+    }
+
+    const pCam = camera as PerspectiveCamera;
+    const targetFov = BASE_FOV * currentFovMultiplier.current;
+    if (Math.abs(pCam.fov - targetFov) > 0.002) {
+      pCam.fov = targetFov;
+      pCam.updateProjectionMatrix();
+    }
+
     setPlayerFeetPosition(pos.clone());
   });
 
