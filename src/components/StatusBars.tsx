@@ -8,8 +8,8 @@ interface HeartProps {
 }
 
 /**
- * Modern Heart icon using the generated high-definition custom HUD sprite:
- * Exactly matching the glossy ruby red heart from the custom texture pack.
+ * Pixel-perfect Heart matching the uploaded reference image:
+ * Pure red pixel heart with white shine, no black outline.
  */
 export function ModernHeart({ state, shake, isDamaged }: HeartProps) {
   let spriteSrc = '/hud_heart.png';
@@ -21,7 +21,7 @@ export function ModernHeart({ state, shake, isDamaged }: HeartProps) {
       className={`relative inline-flex items-center justify-center select-none ${shake ? 'animate-bounce' : ''}`}
       style={{
         width: '18px',
-        height: '18px',
+        height: '16px',
         transform: shake ? 'translateY(-1px)' : 'none',
         transition: 'transform 0.08s ease',
       }}
@@ -30,14 +30,11 @@ export function ModernHeart({ state, shake, isDamaged }: HeartProps) {
         src={spriteSrc}
         alt={`Heart ${state}`}
         referrerPolicy="no-referrer"
-        className={`w-full h-full object-contain pointer-events-none select-none transition-all duration-75 ${
-          isDamaged ? 'brightness-150 contrast-125' : ''
+        className={`w-full h-full object-contain pointer-events-none select-none ${
+          isDamaged ? 'brightness-150' : ''
         }`}
         style={{
-          filter: isDamaged
-            ? 'drop-shadow(0 0 5px #ff3344) brightness(1.4)'
-            : 'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.95))',
-          imageRendering: 'auto',
+          imageRendering: 'pixelated',
         }}
         draggable={false}
       />
@@ -51,8 +48,8 @@ interface DrumstickProps {
 }
 
 /**
- * Modern Drumstick icon using the generated high-definition custom HUD sprite:
- * Exactly matching the angled roasted glazed drumstick with ivory bone handle.
+ * Pixel-perfect Drumstick matching the uploaded reference image:
+ * Angled roasted drumstick with red glaze tip and ivory bone handle.
  */
 export function ModernDrumstick({ state, shake }: DrumstickProps) {
   let spriteSrc = '/hud_drumstick.png';
@@ -64,7 +61,7 @@ export function ModernDrumstick({ state, shake }: DrumstickProps) {
       className={`relative inline-flex items-center justify-center select-none ${shake ? 'animate-bounce' : ''}`}
       style={{
         width: '18px',
-        height: '18px',
+        height: '16px',
         transform: shake ? 'translateY(-1px)' : 'none',
         transition: 'transform 0.08s ease',
       }}
@@ -75,8 +72,7 @@ export function ModernDrumstick({ state, shake }: DrumstickProps) {
         referrerPolicy="no-referrer"
         className="w-full h-full object-contain pointer-events-none select-none"
         style={{
-          filter: 'drop-shadow(0 1px 1px rgba(0, 0, 0, 0.95))',
-          imageRendering: 'auto',
+          imageRendering: 'pixelated',
         }}
         draggable={false}
       />
@@ -85,18 +81,14 @@ export function ModernDrumstick({ state, shake }: DrumstickProps) {
 }
 
 /**
- * Modern Experience & Status Tray matching the reference image:
- * In the image:
- * - 10 Hearts rest directly on the left side of the XP bar
- * - 10 Drumsticks rest directly on the right side of the XP bar
- * - The XP bar is a single continuous segmented tray running flush on top of the hotbar
- * - The bright lime green level number '1' is centered right above the XP bar
+ * StatusBars matching EXACTLY the uploaded reference image:
+ * - Top row: 10 red pixel hearts on the left, 10 drumsticks on the right (with wide space between them, no level number)
+ * - Middle row: continuous dark teal/cyan bordered XP bar with 18 segmented notches spanning the full width
  */
 export function StatusBars() {
   const health = useWorldStore(state => state.health);
   const hunger = useWorldStore(state => state.hunger);
   const lastDamageTime = useWorldStore(state => state.lastDamageTime);
-  const xpLevel = useWorldStore(state => state.xpLevel);
   const xpProgress = useWorldStore(state => state.xpProgress);
 
   // Subtle low-health / low-hunger jitter
@@ -158,102 +150,53 @@ export function StatusBars() {
     );
   });
 
-  // 18 segments total, exactly 9 left and 9 right
-  const totalLeftSegments = 9;
-  // If xpProgress is 0, still show at least the filled bar when player is level 1 like the reference image
-  const filledLeftSegments = Math.max(1, Math.round(xpProgress * totalLeftSegments));
-  const totalRightSegments = 9;
+  // Exactly 18 segmented notches spanning the XP bar matching the image
+  const totalSegments = 18;
+  const filledSegments = Math.round(xpProgress * totalSegments);
 
   return (
-    <div className="relative select-none pointer-events-none w-[396px] flex flex-col items-center">
-      {/* 1. Icons Row: Hearts on Left, Level '1' in Center, Hunger on Right */}
-      <div className="w-full flex justify-between items-end px-[2px] mb-[1px] relative">
+    <div className="relative select-none pointer-events-none w-[470px] flex flex-col items-center">
+      {/* 1. Top Row: Hearts on the left, Drumsticks on the right */}
+      <div className="w-full flex justify-between items-end px-[2px] mb-[6px]">
         {/* Left: 10 Hearts touching each other */}
-        <div className="flex items-center gap-[0px]">
+        <div className="flex items-center gap-[1px]">
           {hearts}
         </div>
 
-        {/* Center: Minecraft Glowing Green Level Number exactly as in the reference image */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-[12px] font-mono font-black text-[16px] select-none leading-none z-30 pointer-events-none"
-          style={{
-            color: '#83ff20',
-            textShadow: `
-              2px 0 0 #000000,
-              -2px 0 0 #000000,
-              0 2px 0 #000000,
-              0 -2px 0 #000000,
-              1.5px 1.5px 0 #000000,
-              -1.5px -1.5px 0 #000000,
-              1.5px -1.5px 0 #000000,
-              -1.5px 1.5px 0 #000000,
-              0 0 6px rgba(131, 255, 32, 0.95)
-            `,
-            letterSpacing: '-0.5px',
-          }}
-        >
-          {xpLevel}
-        </div>
-
         {/* Right: 10 Drumsticks touching each other */}
-        <div className="flex items-center gap-[0px]">
+        <div className="flex items-center gap-[1px]">
           {drumsticks}
         </div>
       </div>
 
-      {/* 2. Sleek Segmented XP Tray Bar spanning across underneath, flush with the Hotbar */}
+      {/* 2. XP Bar: Continuous dark-green/teal segmented bar with 18 segments */}
       <div
-        className="w-full h-[9px] flex items-stretch overflow-hidden rounded-t-[1px]"
+        className="w-full h-[10px] flex items-stretch overflow-hidden mb-[8px]"
         style={{
-          backgroundColor: '#161c22',
-          border: '2px solid #14181e',
-          borderBottom: 'none',
-          boxShadow: '0 -2px 6px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+          backgroundColor: '#0a1514',
+          border: '1.5px solid #081211',
+          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
         }}
       >
-        {/* Left Side: Glowing Green XP Segments under Hearts */}
-        <div className="flex-1 flex items-stretch">
-          {Array.from({ length: totalLeftSegments }).map((_, i) => {
-            const isFilled = i < filledLeftSegments;
-            return (
-              <div
-                key={`left-seg-${i}`}
-                className="flex-1 h-full relative"
-                style={{
-                  backgroundColor: isFilled ? '#78ea12' : '#2a3543',
-                  backgroundImage: isFilled
-                    ? 'linear-gradient(to bottom, #d6ff58 0%, #7fe812 45%, #469a04 100%)'
-                    : 'linear-gradient(to bottom, #2b3644 0%, #1c232d 100%)',
-                  borderRight: '1px solid #10151c',
-                  boxShadow: isFilled
-                    ? 'inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 0 4px rgba(127, 232, 18, 0.6)'
-                    : 'none',
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Center Divider / Gap under the Level Number */}
-        <div className="w-[10px] h-full bg-[#131921] border-l border-r border-[#0d1218]" />
-
-        {/* Right Side: Dark Slate Beveled Segments under Hunger Drumsticks */}
-        <div className="flex-1 flex items-stretch">
-          {Array.from({ length: totalRightSegments }).map((_, i) => {
-            return (
-              <div
-                key={`right-seg-${i}`}
-                className="flex-1 h-full relative"
-                style={{
-                  backgroundColor: '#262f3c',
-                  backgroundImage: 'linear-gradient(to bottom, #2d3644 0%, #1c232c 100%)',
-                  borderRight: i < totalRightSegments - 1 ? '1px solid #10151c' : 'none',
-                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-                }}
-              />
-            );
-          })}
-        </div>
+        {Array.from({ length: totalSegments }).map((_, i) => {
+          const isFilled = i < filledSegments;
+          return (
+            <div
+              key={`xp-seg-${i}`}
+              className="flex-1 h-full relative"
+              style={{
+                backgroundColor: isFilled ? '#78ea12' : '#142522',
+                backgroundImage: isFilled
+                  ? 'linear-gradient(to bottom, #b4f738 0%, #6ecb10 100%)'
+                  : 'linear-gradient(to bottom, #19312d 0%, #0e1e1b 100%)',
+                borderRight: i < totalSegments - 1 ? '1.5px solid #081211' : 'none',
+                boxShadow: isFilled
+                  ? 'inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 3px #78ea12'
+                  : 'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.4)',
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );

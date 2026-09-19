@@ -146,9 +146,6 @@ interface WorldState {
   setIsUsingItem: (isUsingItem: boolean) => void;
   attackEntity: (entityId?: string) => void;
   onSprintAttack: () => void;
-
-  isHudTilted: boolean;
-  toggleHudTilt: () => void;
 }
 
 const defaultVirtualInputs: VirtualInputs = {
@@ -756,9 +753,6 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       window.dispatchEvent(new CustomEvent('player-sprint-attack'));
     }
   },
-
-  isHudTilted: true,
-  toggleHudTilt: () => set(state => ({ isHudTilted: !state.isHudTilted })),
 }));
 
 // Automatic input method adaptation (Touch vs Desktop Keyboard)
