@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useWorldStore } from '../store';
+import {
+  HUD_HEART_TEXTURE,
+  HUD_HEART_HALF_TEXTURE,
+  HUD_HEART_EMPTY_TEXTURE,
+  HUD_HEARTS_FULL_TEXTURE,
+  HUD_DRUMSTICK_TEXTURE,
+  HUD_DRUMSTICK_HALF_TEXTURE,
+  HUD_DRUMSTICK_EMPTY_TEXTURE,
+  HUD_DRUMSTICKS_FULL_TEXTURE,
+} from '../assets/hudTextures';
 
 interface HeartProps {
   state: 'full' | 'half' | 'empty';
@@ -9,12 +19,12 @@ interface HeartProps {
 
 /**
  * Pixel-perfect Heart matching the uploaded reference image:
- * Crisp 1px black outline, saturated red fill with upper-left white shine.
+ * Crisp 1px black outline, completely vibrant red fill with upper-left white shine.
  */
 export function ModernHeart({ state, shake, isDamaged }: HeartProps) {
-  let spriteSrc = '/hud_heart.png';
-  if (state === 'half') spriteSrc = '/hud_heart_half.png';
-  if (state === 'empty') spriteSrc = '/hud_heart_empty.png';
+  let spriteSrc = HUD_HEART_TEXTURE;
+  if (state === 'half') spriteSrc = HUD_HEART_HALF_TEXTURE;
+  if (state === 'empty') spriteSrc = HUD_HEART_EMPTY_TEXTURE;
 
   return (
     <div
@@ -49,12 +59,12 @@ interface DrumstickProps {
 
 /**
  * Pixel-perfect Drumstick matching the uploaded reference image:
- * Crisp 1px black outline, angled roasted meat with red glaze tip and ivory bone handle.
+ * Crisp 1px black outline, angled roasted meat with red glaze tip, white shine, and ivory bone handle.
  */
 export function ModernDrumstick({ state, shake }: DrumstickProps) {
-  let spriteSrc = '/hud_drumstick.png';
-  if (state === 'half') spriteSrc = '/hud_drumstick_half.png';
-  if (state === 'empty') spriteSrc = '/hud_drumstick_empty.png';
+  let spriteSrc = HUD_DRUMSTICK_TEXTURE;
+  if (state === 'half') spriteSrc = HUD_DRUMSTICK_HALF_TEXTURE;
+  if (state === 'empty') spriteSrc = HUD_DRUMSTICK_EMPTY_TEXTURE;
 
   return (
     <div
@@ -184,7 +194,7 @@ export function StatusBars() {
         <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
           {isFullHealth ? (
             <img
-              src="/hud_hearts_full.png"
+              src={HUD_HEARTS_FULL_TEXTURE}
               alt="Health Bar"
               referrerPolicy="no-referrer"
               className="w-[162px] h-[18px] pointer-events-none select-none"
@@ -200,7 +210,7 @@ export function StatusBars() {
         <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
           {isFullHunger ? (
             <img
-              src="/hud_drumsticks_full.png"
+              src={HUD_DRUMSTICKS_FULL_TEXTURE}
               alt="Hunger Bar"
               referrerPolicy="no-referrer"
               className="w-[162px] h-[18px] pointer-events-none select-none"
