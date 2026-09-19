@@ -30,7 +30,7 @@ export function ModernHeart({ state, shake, isDamaged }: HeartProps) {
         src={spriteSrc}
         alt={`Heart ${state}`}
         referrerPolicy="no-referrer"
-        className={`w-[18px] h-[18px] object-contain pointer-events-none select-none ${
+        className={`w-[18px] h-[18px] pointer-events-none select-none ${
           isDamaged ? 'brightness-150' : ''
         }`}
         style={{
@@ -70,7 +70,7 @@ export function ModernDrumstick({ state, shake }: DrumstickProps) {
         src={spriteSrc}
         alt={`Food ${state}`}
         referrerPolicy="no-referrer"
-        className="w-[18px] h-[18px] object-contain pointer-events-none select-none"
+        className="w-[18px] h-[18px] pointer-events-none select-none"
         style={{
           imageRendering: 'pixelated',
         }}
@@ -129,7 +129,6 @@ export function StatusBars() {
           left: `${i * 16}px`,
           width: '18px',
           height: '18px',
-          zIndex: 10 - i,
         }}
       >
         <ModernHeart
@@ -161,7 +160,6 @@ export function StatusBars() {
           left: `${i * 16}px`,
           width: '18px',
           height: '18px',
-          zIndex: i,
         }}
       >
         <ModernDrumstick
@@ -172,6 +170,9 @@ export function StatusBars() {
     );
   });
 
+  const isFullHealth = health >= 20 && !isRecentlyDamaged;
+  const isFullHunger = hunger >= 20 && !isLowHunger;
+
   return (
     <div 
       className="relative select-none pointer-events-none flex flex-col items-center"
@@ -179,14 +180,36 @@ export function StatusBars() {
     >
       {/* 1. Top Row: Hearts on the left, Drumsticks on the right */}
       <div className="w-full flex justify-between items-end mb-[4px]" style={{ height: '18px' }}>
-        {/* Left: 10 Hearts with exact 16px step (sharing 2px outline for continuous chain) */}
+        {/* Left: 10 Hearts - exactly matches image.png */}
         <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
-          {hearts}
+          {isFullHealth ? (
+            <img
+              src="/hud_hearts_full.png"
+              alt="Health Bar"
+              referrerPolicy="no-referrer"
+              className="w-[162px] h-[18px] pointer-events-none select-none"
+              style={{ imageRendering: 'pixelated' }}
+              draggable={false}
+            />
+          ) : (
+            hearts
+          )}
         </div>
 
-        {/* Right: 10 Drumsticks with exact 16px step (aligned to right edge of XP bar) */}
+        {/* Right: 10 Drumsticks - exactly matches image.png */}
         <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
-          {drumsticks}
+          {isFullHunger ? (
+            <img
+              src="/hud_drumsticks_full.png"
+              alt="Hunger Bar"
+              referrerPolicy="no-referrer"
+              className="w-[162px] h-[18px] pointer-events-none select-none"
+              style={{ imageRendering: 'pixelated' }}
+              draggable={false}
+            />
+          ) : (
+            drumsticks
+          )}
         </div>
       </div>
 
