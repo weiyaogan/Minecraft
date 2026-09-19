@@ -117,9 +117,22 @@ interface WorldState {
   playerHeight: number;
   setPlayerHeight: (height: number) => void;
 
-  // Minecraft Java Edition player states affecting sprint
+  // Minecraft Java Edition player Health & Hunger foundation
+  health: number;
+  maxHealth: number;
+  setHealth: (health: number) => void;
+  damage: (amount: number) => void;
+  heal: (amount: number) => void;
+  lastDamageTime: number;
+
   hunger: number;
   setHunger: (hunger: number) => void;
+  saturation: number;
+  setSaturation: (saturation: number) => void;
+  exhaustion: number;
+  addExhaustion: (amount: number) => void;
+  feed: (foodPoints: number, saturationPoints: number) => void;
+
   isBlocking: boolean;
   setIsBlocking: (isBlocking: boolean) => void;
   isEatingOrDrinking: boolean;
@@ -147,9 +160,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   fallingBlocks: [],
   setBlocks: (blocks) => set({ blocks }),
   setFallingBlocks: (fallingBlocks) => set({ fallingBlocks }),
-  removeBlock: (x, y, z) => set((state) => ({
-    blocks: state.blocks.filter(b => !(b.x === x && b.y === y && b.z === z))
-  })),
+  removeBlock: (x, y, z) => {
+    get().addExhaustion(0.005);
+    set((state) => ({
+      blocks: state.blocks.filter(b => !(b.x === x && b.y === y && b.z === z))
+    }));
+  },
   addBlock: (x, y, z, type) => set((state) => {
     if (state.blocks.some(b => b.x === x && b.y === y && b.z === z)) {
       return state;
@@ -190,6 +206,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     respawnTrigger: state.respawnTrigger + 1,
     playerFeetPosition: new Vector3(0, 5, 0),
     isPaused: false,
+    health: 20,
+    hunger: 20,
+    saturation: 5.0,
+    exhaustion: 0.0,
   })),
   
   hotbar: [
@@ -635,8 +655,67 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   playerHeight: 1.8,
   setPlayerHeight: (height) => set((state) => (state.playerHeight === height ? state : { playerHeight: height })),
 
+  // Health system (Minecraft Java Edition: 20 max HP, 10 hearts)
+  health: 20,
+  maxHealth: 20,
+  setHealth: (health) => set({ health: Math.max(0, Math.min(20, health)) }),
+  damage: (amount) => set((state) => ({
+    health: Math.max(0, state.health - Math.max(0, amount)),
+    lastDamageTime: Date.now(),
+  })),
+  heal: (amount) => set((state) => ({
+    health: Math.min(20, state.health + Math.max(0, amount)),
+  })),
+  lastDamageTime: 0,
+
+  // Hunger system (Minecraft Java Edition: 20 max food, 10 drumsticks)
   hunger: 20,
-  setHunger: (hunger) => set({ hunger: Math.max(0, Math.min(20, hunger)) }),
+  setHunger: (hunger) => set((state) => {
+    const clampedHunger = Math.max(0, Math.min(20, hunger));
+    return {
+      hunger: clampedHunger,
+      saturation: Math.min(state.saturation, clampedHunger),
+    };
+  }),
+
+  // Saturation & Exhaustion foundations (Minecraft Java mechanics)
+  saturation: 5.0,
+  setSaturation: (saturation) => set((state) => ({
+    saturation: Math.max(0, Math.min(state.hunger, saturation)),
+  })),
+
+  exhaustion: 0.0,
+  addExhaustion: (amount) => set((state) => {
+    if (amount <= 0) return state;
+    let newExhaustion = state.exhaustion + amount;
+    let newSaturation = state.saturation;
+    let newHunger = state.hunger;
+
+    while (newExhaustion >= 4.0) {
+      newExhaustion -= 4.0;
+      if (newSaturation > 0) {
+        newSaturation = Math.max(0, newSaturation - 1.0);
+      } else {
+        newHunger = Math.max(0, newHunger - 1);
+      }
+    }
+    newSaturation = Math.min(newSaturation, newHunger);
+
+    return {
+      exhaustion: newExhaustion,
+      saturation: newSaturation,
+      hunger: newHunger,
+    };
+  }),
+
+  feed: (foodPoints, saturationPoints) => set((state) => {
+    const newHunger = Math.min(20, state.hunger + Math.max(0, foodPoints));
+    const newSaturation = Math.min(newHunger, state.saturation + Math.max(0, saturationPoints));
+    return {
+      hunger: newHunger,
+      saturation: newSaturation,
+    };
+  }),
   isBlocking: false,
   setIsBlocking: (isBlocking) => set({ isBlocking }),
   isEatingOrDrinking: false,

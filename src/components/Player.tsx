@@ -170,6 +170,9 @@ export function Player() {
   const playerPitch = useRef(0);
   const thirdPersonCameraPosition = useRef(new Vector3());
   const currentFovMultiplier = useRef(1.0);
+  const regenTimerRef = useRef(0);
+  const fastRegenTimerRef = useRef(0);
+  const starveTimerRef = useRef(0);
 
   // Listen for sprint attack against mobs/entities per Minecraft Java Edition rules
   useEffect(() => {
@@ -313,6 +316,7 @@ export function Player() {
         velocityY.current = JUMP_FORCE;
         isGrounded = false;
         playJumpSound();
+        useWorldStore.getState().addExhaustion(isSprinting.current ? 0.2 : 0.05);
       }
     }
 
@@ -417,6 +421,11 @@ export function Player() {
         direction.normalize().multiplyScalar(factor);
         dx = direction.x * speed * dt;
         dz = direction.z * speed * dt;
+
+        const distMoved = Math.hypot(dx, dz);
+        if (distMoved > 0.0001) {
+          useWorldStore.getState().addExhaustion(isSprinting.current ? distMoved * 0.1 : distMoved * 0.01);
+        }
       }
     }
 
@@ -532,10 +541,54 @@ export function Player() {
     characterAnimationRef.current.isMoving = Math.abs(dx) > EPSILON || Math.abs(dz) > EPSILON;
     characterAnimationRef.current.moveSpeed = speed;
 
+    // --- 5.5 NATURAL HEALTH REGENERATION & HUNGER/STARVATION (Minecraft Java Edition) ---
+    const store = useWorldStore.getState();
+    const currentHealth = store.health;
+    const currentHunger = store.hunger;
+    const currentSaturation = store.saturation;
+
+    if (currentHealth > 0) {
+      // 1. Fast Regeneration: hunger is full (20) and saturation > 0
+      if (currentHealth < 20 && currentHunger === 20 && currentSaturation > 0) {
+        fastRegenTimerRef.current += dt;
+        if (fastRegenTimerRef.current >= 1.0) {
+          fastRegenTimerRef.current = 0;
+          store.heal(1);
+          store.addExhaustion(6.0);
+        }
+      } else {
+        fastRegenTimerRef.current = 0;
+      }
+
+      // 2. Normal Regeneration: hunger >= 18 and health < 20
+      if (currentHealth < 20 && currentHunger >= 18 && !(currentHunger === 20 && currentSaturation > 0)) {
+        regenTimerRef.current += dt;
+        if (regenTimerRef.current >= 4.0) {
+          regenTimerRef.current = 0;
+          store.heal(1);
+          store.addExhaustion(6.0);
+        }
+      } else if (currentHealth >= 20 || currentHunger < 18) {
+        regenTimerRef.current = 0;
+      }
+
+      // 3. Starvation: hunger === 0
+      if (currentHunger === 0) {
+        starveTimerRef.current += dt;
+        if (starveTimerRef.current >= 4.0) {
+          starveTimerRef.current = 0;
+          store.damage(1);
+        }
+      } else {
+        starveTimerRef.current = 0;
+      }
+    }
+
     // --- 6. VOID RESPAWN ---
     if (pos.y < -20) {
       pos.set(0, 5, 0);
       velocityY.current = 0;
+      store.damage(4);
     }
 
     // --- 7. UPDATE CAMERA POSITION ---

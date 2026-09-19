@@ -152,9 +152,11 @@ export function MobileControls({ onLookRotate }: MobileControlsProps) {
     setJoystickMove(normX, normY);
 
     // Sprint detection: double-tap forward or pushing all the way forward (> 0.85)
-    if (normY > 0.85) {
+    // Only allow sprint if hunger is above 6 (Minecraft Java Edition rule)
+    const canSprintHunger = useWorldStore.getState().hunger > 6;
+    if (canSprintHunger && normY > 0.85) {
       setVirtualInput('sprint', true);
-    } else if (normY > 0.4) {
+    } else if (canSprintHunger && normY > 0.4) {
       const now = performance.now();
       if (now - lastForwardTapTime.current < 300) {
         setVirtualInput('sprint', true);
