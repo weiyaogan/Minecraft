@@ -73,12 +73,17 @@ export function computeItemThrowSpawnAndVelocity(
 
   if (optionalCameraDir) {
     // Both camera position and look direction provided
-    eyePos = {
-      x: cameraPosOrDir ? cameraPosOrDir.x : fallbackEyePos.x,
-      // Ensure eye Y is at head level and not at lower body/feet
-      y: cameraPosOrDir ? Math.max(cameraPosOrDir.y, playerFeetPosition.y + 1.2) : fallbackEyePos.y,
-      z: cameraPosOrDir ? cameraPosOrDir.z : fallbackEyePos.z,
-    };
+    // If camera is detached in third person (> 1.2m away), always spawn from player's head
+    const distFromPlayer = cameraPosOrDir
+      ? Math.hypot(cameraPosOrDir.x - fallbackEyePos.x, cameraPosOrDir.y - fallbackEyePos.y, cameraPosOrDir.z - fallbackEyePos.z)
+      : 0;
+    eyePos = (cameraPosOrDir && distFromPlayer < 1.2)
+      ? {
+          x: cameraPosOrDir.x,
+          y: Math.max(cameraPosOrDir.y, playerFeetPosition.y + 1.2),
+          z: cameraPosOrDir.z,
+        }
+      : fallbackEyePos;
     lookDir = {
       x: optionalCameraDir.x,
       y: optionalCameraDir.y,

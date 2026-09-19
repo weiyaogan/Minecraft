@@ -218,8 +218,18 @@ export function TargetHighlight() {
     const direction = new Vector3();
     camera.getWorldDirection(direction);
 
+    const isFirstPerson = storeState.perspectiveMode === 'first';
+    const playerEyePos = new Vector3(
+      storeState.playerFeetPosition.x,
+      storeState.playerFeetPosition.y + (storeState.playerHeight < 1.65 ? 1.35 : 1.62),
+      storeState.playerFeetPosition.z
+    );
+
     // Find closest targeted block and exact hit face normal via slab intersection
-    const hitResult = findTargetBlock(origin, direction, blocks, 4.5);
+    // In third person, raycast further from camera through crosshair, but constrain reach from player's eyes
+    const hitResult = isFirstPerson
+      ? findTargetBlock(origin, direction, blocks, 4.5)
+      : findTargetBlock(origin, direction, blocks, 10.0, playerEyePos, 4.8);
     const targetBlock = hitResult.block;
     const targetNormal = hitResult.normal;
     const targetHitPoint = hitResult.hitPoint;

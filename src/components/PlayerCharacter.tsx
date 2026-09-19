@@ -102,15 +102,22 @@ export function PlayerCharacter({
     // 1. Position character at the player's physical feet location
     rootRef.current.position.copy(feetPosition);
 
-    // 2. Align horizontal body rotation with camera yaw
-    const euler = new Euler(0, 0, 0, 'YXZ');
-    euler.setFromQuaternion(camera.quaternion);
-    const yaw = isThirdPerson && facingYawRef
-      ? facingYawRef.current
-      : perspectiveMode === 'thirdFront'
-        ? euler.y - Math.PI
-        : euler.y;
-    const pitch = isThirdPerson && viewPitchRef ? viewPitchRef.current : euler.x;
+    // 2. Align horizontal body rotation with player yaw
+    let yaw = 0;
+    let pitch = 0;
+    if (facingYawRef) {
+      yaw = facingYawRef.current;
+    } else {
+      const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+      yaw = perspectiveMode === 'thirdFront' ? euler.y - Math.PI : euler.y;
+    }
+
+    if (viewPitchRef) {
+      pitch = viewPitchRef.current;
+    } else {
+      const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+      pitch = euler.x;
+    }
     rootRef.current.rotation.y = yaw;
 
     // 3. Smooth sneak crouch animation (lowers upper body and tilts torso forward)
@@ -130,6 +137,11 @@ export function PlayerCharacter({
     if (headRef.current) {
       // Counteract torso pitch so head faces look direction
       headRef.current.rotation.x = pitch - (sneak * 0.32);
+      // If camera gets too close to head (< 0.42m), hide head to prevent clipping
+      const headDist = camera.position.distanceTo(
+        new Vector3(feetPosition.x, feetPosition.y + 1.5, feetPosition.z)
+      );
+      headRef.current.visible = isThirdPerson && headDist > 0.42;
     }
 
     // 5. Walking & Sprinting limb animation

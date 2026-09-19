@@ -16,10 +16,11 @@ interface CustomPointerLockControlsProps {
   onChange?: () => void;
   onLock?: () => void;
   onUnlock?: () => void;
+  onLook?: (deltaYaw: number, deltaPitch: number) => void;
 }
 
 export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef, CustomPointerLockControlsProps>(
-  ({ selector, enabled = true, onChange, onLock, onUnlock }, ref) => {
+  ({ selector, enabled = true, onChange, onLock, onUnlock, onLook }, ref) => {
     const { camera, gl } = useThree();
     const [isLocked, setIsLocked] = useState(false);
     const isLockedRef = useRef(false);
@@ -104,17 +105,21 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
         if (!customEvent.detail) return;
         const { deltaX, deltaY } = customEvent.detail;
 
-        const euler = new Euler(0, 0, 0, 'YXZ');
-        euler.setFromQuaternion(camera.quaternion);
-
         const touchSensitivity = 0.0035;
-        euler.y -= deltaX * touchSensitivity;
-        euler.x -= deltaY * touchSensitivity;
+        const deltaYaw = -deltaX * touchSensitivity;
+        const deltaPitch = -deltaY * touchSensitivity;
 
-        const maxPitch = Math.PI / 2 - 0.01;
-        euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-
-        camera.quaternion.setFromEuler(euler);
+        if (onLook) {
+          onLook(deltaYaw, deltaPitch);
+        } else {
+          const euler = new Euler(0, 0, 0, 'YXZ');
+          euler.setFromQuaternion(camera.quaternion);
+          euler.y += deltaYaw;
+          euler.x += deltaPitch;
+          const maxPitch = Math.PI / 2 - 0.01;
+          euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+          camera.quaternion.setFromEuler(euler);
+        }
         onChange?.();
       };
 
@@ -152,19 +157,22 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
           (e as unknown as { mozMovementY?: number }).mozMovementY ??
           0;
 
-        const euler = new Euler(0, 0, 0, 'YXZ');
-        euler.setFromQuaternion(camera.quaternion);
-
         // Minecraft Java mouse look sensitivity
         const sensitivity = 0.002;
-        euler.y -= movementX * sensitivity;
-        euler.x -= movementY * sensitivity;
+        const deltaYaw = -movementX * sensitivity;
+        const deltaPitch = -movementY * sensitivity;
 
-        // Clamp vertical look between -89.5 deg and +89.5 deg
-        const maxPitch = Math.PI / 2 - 0.01;
-        euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-
-        camera.quaternion.setFromEuler(euler);
+        if (onLook) {
+          onLook(deltaYaw, deltaPitch);
+        } else {
+          const euler = new Euler(0, 0, 0, 'YXZ');
+          euler.setFromQuaternion(camera.quaternion);
+          euler.y += deltaYaw;
+          euler.x += deltaPitch;
+          const maxPitch = Math.PI / 2 - 0.01;
+          euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+          camera.quaternion.setFromEuler(euler);
+        }
         onChange?.();
       };
 
@@ -197,17 +205,21 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
           y: touch.clientY,
         };
 
-        const euler = new Euler(0, 0, 0, 'YXZ');
-        euler.setFromQuaternion(camera.quaternion);
-
         const touchSensitivity = 0.004;
-        euler.y -= movementX * touchSensitivity;
-        euler.x -= movementY * touchSensitivity;
+        const deltaYaw = -movementX * touchSensitivity;
+        const deltaPitch = -movementY * touchSensitivity;
 
-        const maxPitch = Math.PI / 2 - 0.01;
-        euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
-
-        camera.quaternion.setFromEuler(euler);
+        if (onLook) {
+          onLook(deltaYaw, deltaPitch);
+        } else {
+          const euler = new Euler(0, 0, 0, 'YXZ');
+          euler.setFromQuaternion(camera.quaternion);
+          euler.y += deltaYaw;
+          euler.x += deltaPitch;
+          const maxPitch = Math.PI / 2 - 0.01;
+          euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
+          camera.quaternion.setFromEuler(euler);
+        }
         onChange?.();
       };
 

@@ -165,12 +165,15 @@ export function intersectBlock(
 
 /**
  * Finds the closest block intersected by the crosshair ray within maxDistance.
+ * Optionally verifies that the hit point is within reach of playerEyePos.
  */
 export function findTargetBlock(
   origin: Vector3,
   direction: Vector3,
   blocks: Block[],
-  maxDistance: number = 4.5
+  maxDistance: number = 4.5,
+  playerEyePos?: Vector3,
+  maxPlayerReach: number = 5.0
 ): { block: Block | null; normal: Vector3 | null; hitPoint: Vector3 | null; distance: number } {
   let closestDist = maxDistance;
   let targetBlock: Block | null = null;
@@ -189,6 +192,12 @@ export function findTargetBlock(
 
     const res = intersectBlock(origin, direction, block, closestDist);
     if (res.hit && res.distance < closestDist) {
+      if (playerEyePos) {
+        const reachDist = playerEyePos.distanceTo(res.hitPoint);
+        if (reachDist > maxPlayerReach) {
+          continue;
+        }
+      }
       closestDist = res.distance;
       targetBlock = block;
       targetNormal = res.normal;
