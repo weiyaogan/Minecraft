@@ -167,17 +167,12 @@ export function Player() {
     playerYaw.current = normalizeAngle(playerYaw.current + deltaYaw);
     const maxPitch = Math.PI / 2 - 0.02;
     playerPitch.current = Math.max(-maxPitch, Math.min(maxPitch, playerPitch.current + deltaPitch));
-  }, []);
 
-  const handleCameraChange = useCallback(() => {
     const mode = useWorldStore.getState().perspectiveMode;
-    const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
     if (mode === 'first' || mode === 'thirdBehind') {
-      playerYaw.current = euler.y;
-      playerPitch.current = euler.x;
+      camera.rotation.set(playerPitch.current, playerYaw.current, 0, 'YXZ');
     } else if (mode === 'thirdFront') {
-      playerYaw.current = normalizeAngle(euler.y - Math.PI);
-      playerPitch.current = -euler.x;
+      camera.rotation.set(-playerPitch.current, normalizeAngle(playerYaw.current + Math.PI), 0, 'YXZ');
     }
   }, [camera]);
 
@@ -190,9 +185,12 @@ export function Player() {
     }
   }, [respawnTrigger, camera]);
 
-  // Initialize camera position once
+  // Initialize camera position and facing angle once
   useEffect(() => {
     camera.position.set(feetPosition.current.x, feetPosition.current.y + EYE_HEIGHT, feetPosition.current.z);
+    const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+    playerYaw.current = euler.y;
+    playerPitch.current = euler.x;
   }, [camera]);
 
   useFrame((_, delta) => {
@@ -512,7 +510,7 @@ export function Player() {
 
   return (
     <>
-      <CustomPointerLockControls ref={controlsRef} onLook={handleLook} onChange={handleCameraChange} />
+      <CustomPointerLockControls ref={controlsRef} onLook={handleLook} />
       <PlayerCharacter
         camera={camera}
         feetPosition={feetPosition.current}

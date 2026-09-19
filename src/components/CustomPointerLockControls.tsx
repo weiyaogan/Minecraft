@@ -120,7 +120,6 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
           euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
-        onChange?.();
       };
 
       window.addEventListener('mobile-camera-look', handleMobileCameraLook);
@@ -143,19 +142,49 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
         console.warn('Pointer lock error event:', err);
       };
 
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isLockedRef.current) return;
+      let isMouseDown = false;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
 
-        const movementX =
-          e.movementX ??
-          (e as unknown as { webkitMovementX?: number }).webkitMovementX ??
-          (e as unknown as { mozMovementX?: number }).mozMovementX ??
-          0;
-        const movementY =
-          e.movementY ??
-          (e as unknown as { webkitMovementY?: number }).webkitMovementY ??
-          (e as unknown as { mozMovementY?: number }).mozMovementY ??
-          0;
+      const handleMouseDown = (e: MouseEvent) => {
+        if (isLockedRef.current) return;
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest('button, input, select, textarea')) return;
+        isMouseDown = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+      };
+
+      const handleMouseUp = () => {
+        isMouseDown = false;
+      };
+
+      const handleMouseMove = (e: MouseEvent) => {
+        const isLocked = isLockedRef.current;
+        const isDragging = isMouseDown && e.buttons !== 0;
+
+        if (!isLocked && !isDragging) return;
+
+        let movementX = 0;
+        let movementY = 0;
+
+        if (isLocked) {
+          movementX =
+            e.movementX ??
+            (e as unknown as { webkitMovementX?: number }).webkitMovementX ??
+            (e as unknown as { mozMovementX?: number }).mozMovementX ??
+            0;
+          movementY =
+            e.movementY ??
+            (e as unknown as { webkitMovementY?: number }).webkitMovementY ??
+            (e as unknown as { mozMovementY?: number }).mozMovementY ??
+            0;
+        } else {
+          movementX = e.clientX - lastMouseX;
+          movementY = e.clientY - lastMouseY;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
 
         // Minecraft Java mouse look sensitivity
         const sensitivity = 0.002;
@@ -173,7 +202,6 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
           euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
-        onChange?.();
       };
 
       // Touch controls for mobile / tablet devices where pointer lock is absent
@@ -220,7 +248,6 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
           euler.x = Math.max(-maxPitch, Math.min(maxPitch, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
-        onChange?.();
       };
 
       const handleTouchEnd = () => {
@@ -259,6 +286,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       document.addEventListener('mozpointerlockerror', handlePointerLockError);
 
       document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mousedown', handleMouseDown);
+      document.addEventListener('mouseup', handleMouseUp);
 
       const canvasEl = gl.domElement;
       if (canvasEl) {
@@ -283,6 +312,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
         document.removeEventListener('mozpointerlockerror', handlePointerLockError);
 
         document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mousedown', handleMouseDown);
+        document.removeEventListener('mouseup', handleMouseUp);
         window.removeEventListener('mobile-camera-look', handleMobileCameraLook);
 
         if (canvasEl) {
