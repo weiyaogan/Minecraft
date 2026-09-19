@@ -127,7 +127,7 @@ export function PlayerCharacter({
   });
 
   return (
-    <group ref={rootRef}>
+    <group ref={rootRef} visible={isThirdPerson}>
       {/* ------------------------------------------------------------- */}
       {/* UPPER BODY (Torso, Head, Arms)                                 */}
       {/* Pivot at waist / hips (y = 0.75m)                              */}
