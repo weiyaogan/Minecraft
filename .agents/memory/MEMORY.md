@@ -1,0 +1,1 @@
+- [Third-person camera state](third-person-camera.md) — keep orbit input separate from the rendered camera quaternion when using lookAt.

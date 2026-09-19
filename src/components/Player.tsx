@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CustomPointerLockControls, CustomPointerLockControlsRef } from './CustomPointerLockControls';
 import { useKeyboard } from '../hooks/useKeyboard';
@@ -158,6 +158,20 @@ export function Player() {
   const orbitPitch = useRef(0);
   const thirdPersonCameraPosition = useRef(new Vector3());
 
+  // In third person, the camera quaternion is rebuilt with lookAt() after each
+  // frame. Keep the actual orbit angles separately so mouse look is not fed
+  // back through that derived quaternion on the next frame.
+  const handleCameraChange = useCallback(() => {
+    const mode = useWorldStore.getState().perspectiveMode;
+    if (mode === 'first') return;
+
+    const currentEuler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+    orbitYaw.current = mode === 'thirdFront'
+      ? normalizeAngle(currentEuler.y - Math.PI)
+      : currentEuler.y;
+    orbitPitch.current = clampPitch(currentEuler.x);
+  }, [camera]);
+
   // Respawn effect
   useEffect(() => {
     if (respawnTrigger > 0) {
@@ -193,14 +207,6 @@ export function Player() {
       }
 
       previousPerspective.current = perspectiveMode;
-    }
-
-    if (perspectiveMode !== 'first') {
-      const currentEuler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
-      orbitYaw.current = perspectiveMode === 'thirdFront'
-        ? normalizeAngle(currentEuler.y - Math.PI)
-        : currentEuler.y;
-      orbitPitch.current = clampPitch(currentEuler.x);
     }
 
     // Movement allowed if locked (desktop) or active playing without pause/inventory (mobile)
@@ -494,13 +500,15 @@ export function Player() {
 
   return (
     <>
-      <CustomPointerLockControls ref={controlsRef} />
+      <CustomPointerLockControls ref={controlsRef} onChange={handleCameraChange} />
       <PlayerCharacter
         camera={camera}
         feetPosition={feetPosition.current}
         animationStateRef={characterAnimationRef}
         isThirdPerson={perspectiveMode !== 'first'}
         perspectiveMode={perspectiveMode}
+        facingYawRef={orbitYaw}
+        viewPitchRef={orbitPitch}
       />
       {/* Hand model attached securely to the first-person camera */}
       {perspectiveMode === 'first' && (

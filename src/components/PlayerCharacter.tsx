@@ -31,6 +31,8 @@ export interface PlayerCharacterProps {
   animationStateRef: { current: PlayerAnimationState };
   isThirdPerson?: boolean;
   perspectiveMode?: PerspectiveMode;
+  facingYawRef?: { current: number };
+  viewPitchRef?: { current: number };
 }
 
 function HeldBlock({ type }: { type: BlockType }) {
@@ -63,6 +65,8 @@ export function PlayerCharacter({
   animationStateRef,
   isThirdPerson = false,
   perspectiveMode = 'first',
+  facingYawRef,
+  viewPitchRef,
 }: PlayerCharacterProps) {
   const rootRef = useRef<Group>(null);
   const upperBodyRef = useRef<Group>(null);
@@ -101,10 +105,12 @@ export function PlayerCharacter({
     // 2. Align horizontal body rotation with camera yaw
     const euler = new Euler(0, 0, 0, 'YXZ');
     euler.setFromQuaternion(camera.quaternion);
-    const yaw = perspectiveMode === 'thirdFront'
-      ? euler.y - Math.PI
-      : euler.y;
-    const pitch = euler.x;
+    const yaw = isThirdPerson && facingYawRef
+      ? facingYawRef.current
+      : perspectiveMode === 'thirdFront'
+        ? euler.y - Math.PI
+        : euler.y;
+    const pitch = isThirdPerson && viewPitchRef ? viewPitchRef.current : euler.x;
     rootRef.current.rotation.y = yaw;
 
     // 3. Smooth sneak crouch animation (lowers upper body and tilts torso forward)
