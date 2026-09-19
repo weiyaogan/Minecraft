@@ -26,6 +26,8 @@ export interface InventorySlot {
   count: number;
 }
 
+export type PerspectiveMode = 'first' | 'thirdBehind' | 'thirdFront';
+
 export interface FallingBlock {
   id: string;
   type: BlockType;
@@ -67,6 +69,8 @@ interface WorldState {
   cursorItem: InventorySlot | null;
   hoveredSlot: { container: 'hotbar'|'inventory'|'offhand', index: number } | null;
   isInventoryOpen: boolean;
+  perspectiveMode: PerspectiveMode;
+  cyclePerspective: () => void;
   
   setInventoryOpen: (isOpen: boolean) => void;
   setCursorItem: (item: InventorySlot | null) => void;
@@ -185,6 +189,14 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   cursorItem: null,
   hoveredSlot: null,
   isInventoryOpen: false,
+  perspectiveMode: 'first',
+  cyclePerspective: () => set((state) => ({
+    perspectiveMode: state.perspectiveMode === 'first'
+      ? 'thirdBehind'
+      : state.perspectiveMode === 'thirdBehind'
+        ? 'thirdFront'
+        : 'first',
+  })),
   
   setInventoryOpen: (isOpen) => set((state) => {
     if (!isOpen && state.cursorItem) {

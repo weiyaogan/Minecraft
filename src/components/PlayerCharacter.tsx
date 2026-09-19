@@ -1,12 +1,21 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh, Vector3, Euler, Camera } from 'three';
+import { PerspectiveMode, useWorldStore } from '../store';
 import {
   createSteveHeadMaterials,
   createSteveTorsoMaterials,
   createSteveArmMaterials,
   createSteveLegMaterials,
 } from '../utils/playerTextures';
+import { BlockType } from '../world/blocks';
+import {
+  grassTopTexture,
+  dirtTexture,
+  grassSideTexture,
+  stoneTexture,
+  bedrockTexture,
+} from '../world/textures';
 
 export interface PlayerAnimationState {
   isGrounded: boolean;
@@ -21,6 +30,31 @@ export interface PlayerCharacterProps {
   feetPosition: Vector3;
   animationStateRef: { current: PlayerAnimationState };
   isThirdPerson?: boolean;
+  perspectiveMode?: PerspectiveMode;
+}
+
+function HeldBlock({ type }: { type: BlockType }) {
+  return (
+    <group position={[0, -0.76, -0.08]} rotation={[0.2, 0.35, 0.15]} scale={[0.32, 0.32, 0.32]}>
+      <mesh renderOrder={20}>
+        <boxGeometry args={[1, 1, 1]} />
+        {type === 'stone' && <meshStandardMaterial map={stoneTexture} />}
+        {type === 'sand' && <meshStandardMaterial map={dirtTexture} color="#e3dbb0" />}
+        {type === 'dirt' && <meshStandardMaterial map={dirtTexture} />}
+        {type === 'bedrock' && <meshStandardMaterial map={bedrockTexture} />}
+        {type === 'grass' && (
+          <>
+            <meshStandardMaterial attach="material-0" map={grassSideTexture} />
+            <meshStandardMaterial attach="material-1" map={grassSideTexture} />
+            <meshStandardMaterial attach="material-2" map={grassTopTexture} color="#55aa55" />
+            <meshStandardMaterial attach="material-3" map={dirtTexture} />
+            <meshStandardMaterial attach="material-4" map={grassSideTexture} />
+            <meshStandardMaterial attach="material-5" map={grassSideTexture} />
+          </>
+        )}
+      </mesh>
+    </group>
+  );
 }
 
 export function PlayerCharacter({
@@ -28,6 +62,7 @@ export function PlayerCharacter({
   feetPosition,
   animationStateRef,
   isThirdPerson = false,
+  perspectiveMode = 'first',
 }: PlayerCharacterProps) {
   const rootRef = useRef<Group>(null);
   const upperBodyRef = useRef<Group>(null);
@@ -37,6 +72,10 @@ export function PlayerCharacter({
   const rightArmRef = useRef<Group>(null);
   const leftLegRef = useRef<Group>(null);
   const rightLegRef = useRef<Group>(null);
+  const hotbar = useWorldStore((state) => state.hotbar);
+  const selectedHotbarSlot = useWorldStore((state) => state.selectedHotbarSlot);
+  const offhandItem = useWorldStore((state) => state.offhand.type);
+  const heldItem = hotbar[selectedHotbarSlot]?.type;
 
   // Animation state references
   const walkTimeRef = useRef(0);
@@ -62,7 +101,9 @@ export function PlayerCharacter({
     // 2. Align horizontal body rotation with camera yaw
     const euler = new Euler(0, 0, 0, 'YXZ');
     euler.setFromQuaternion(camera.quaternion);
-    const yaw = euler.y;
+    const yaw = perspectiveMode === 'thirdFront'
+      ? euler.y - Math.PI
+      : euler.y;
     const pitch = euler.x;
     rootRef.current.rotation.y = yaw;
 
@@ -159,6 +200,7 @@ export function PlayerCharacter({
             <mesh position={[0, -0.36, 0]} material={leftArmMaterials} castShadow>
               <boxGeometry args={[0.24, 0.72, 0.24]} />
             </mesh>
+            {offhandItem && <HeldBlock type={offhandItem} />}
           </group>
 
           {/* Right Arm: Pivot at shoulder (x = +0.36, y = 0.69) */}
@@ -167,6 +209,7 @@ export function PlayerCharacter({
             <mesh position={[0, -0.36, 0]} material={rightArmMaterials} castShadow>
               <boxGeometry args={[0.24, 0.72, 0.24]} />
             </mesh>
+            {heldItem && <HeldBlock type={heldItem} />}
           </group>
         </group>
       </group>

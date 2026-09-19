@@ -32,6 +32,10 @@ export function InputManager() {
         }
       }
 
+      if (e.code === 'KeyV' && !e.repeat && !state.isInventoryOpen && !state.isPaused) {
+        state.cyclePerspective();
+      }
+
       if (e.code === 'KeyF' && !state.isInventoryOpen) {
         state.swapOffhand();
       }

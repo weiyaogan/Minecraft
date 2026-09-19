@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { CustomPointerLockControls, CustomPointerLockControlsRef } from './CustomPointerLockControls';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { Vector3, Euler, PerspectiveCamera } from 'three';
-import { useWorldStore } from '../store';
+import { PerspectiveMode, useWorldStore } from '../store';
 import { PlayerHand } from './PlayerHand';
 import { PlayerCharacter, PlayerAnimationState } from './PlayerCharacter';
 import { playJumpSound } from '../utils/audio';
@@ -49,6 +49,73 @@ export const checkIntersection = (
   );
 };
 
+const THIRD_PERSON_DISTANCE = 4.5;
+const THIRD_PERSON_MIN_DISTANCE = 0.25;
+const THIRD_PERSON_CAMERA_RADIUS = 0.18;
+
+const normalizeAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+
+const clampPitch = (pitch: number) => Math.max(-1.2, Math.min(1.2, pitch));
+
+const getSafeCameraDistance = (
+  origin: Vector3,
+  destination: Vector3,
+  collisionBlocks: Array<{ minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number }>,
+) => {
+  const direction = destination.clone().sub(origin);
+  const distance = direction.length();
+  if (distance < 0.001) return 0;
+  direction.multiplyScalar(1 / distance);
+
+  let nearestHit = distance;
+  for (const block of collisionBlocks) {
+    const minX = block.minX - THIRD_PERSON_CAMERA_RADIUS;
+    const maxX = block.maxX + THIRD_PERSON_CAMERA_RADIUS;
+    const minY = block.minY - THIRD_PERSON_CAMERA_RADIUS;
+    const maxY = block.maxY + THIRD_PERSON_CAMERA_RADIUS;
+    const minZ = block.minZ - THIRD_PERSON_CAMERA_RADIUS;
+    const maxZ = block.maxZ + THIRD_PERSON_CAMERA_RADIUS;
+
+    let entry = 0;
+    let exit = 1;
+    const axes: Array<[number, number, number, number]> = [
+      [origin.x, direction.x, minX, maxX],
+      [origin.y, direction.y, minY, maxY],
+      [origin.z, direction.z, minZ, maxZ],
+    ];
+
+    let intersects = true;
+    for (const [start, delta, min, max] of axes) {
+      if (Math.abs(delta) < 0.000001) {
+        if (start < min || start > max) {
+          intersects = false;
+          break;
+        }
+        continue;
+      }
+
+      let near = (min - start) / delta;
+      let far = (max - start) / delta;
+      if (near > far) [near, far] = [far, near];
+      entry = Math.max(entry, near);
+      exit = Math.min(exit, far);
+      if (entry > exit) {
+        intersects = false;
+        break;
+      }
+    }
+
+    if (intersects && exit >= 0 && entry <= 1) {
+      nearestHit = Math.min(
+        nearestHit,
+        Math.max(THIRD_PERSON_MIN_DISTANCE, entry * distance - 0.12),
+      );
+    }
+  }
+
+  return nearestHit;
+};
+
 export function Player() {
   const blocks = useWorldStore(state => state.blocks);
   const collisionBlocks = useMemo(() => blocks.map(b => ({
@@ -83,8 +150,13 @@ export function Player() {
   const isMobile = useWorldStore(state => state.isMobile);
   const isPaused = useWorldStore(state => state.isPaused);
   const isInventoryOpen = useWorldStore(state => state.isInventoryOpen);
+  const perspectiveMode = useWorldStore(state => state.perspectiveMode);
   const virtualInputs = useWorldStore(state => state.virtualInputs);
   const joystickMove = useWorldStore(state => state.joystickMove);
+  const previousPerspective = useRef<PerspectiveMode>(perspectiveMode);
+  const orbitYaw = useRef(0);
+  const orbitPitch = useRef(0);
+  const thirdPersonCameraPosition = useRef(new Vector3());
 
   // Respawn effect
   useEffect(() => {
@@ -104,6 +176,32 @@ export function Player() {
     const dt = Math.min(delta, 0.1); // Cap delta to prevent massive physics spikes
     const pos = feetPosition.current;
     const EPSILON = 0.001;
+
+    if (perspectiveMode !== previousPerspective.current) {
+      const previousMode = previousPerspective.current;
+      const currentEuler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+
+      if (perspectiveMode === 'first') {
+        const firstPersonYaw = previousMode === 'thirdFront'
+          ? orbitYaw.current
+          : currentEuler.y;
+        camera.rotation.set(orbitPitch.current, firstPersonYaw, 0, 'YXZ');
+      } else if (previousMode === 'first') {
+        orbitYaw.current = currentEuler.y;
+        orbitPitch.current = clampPitch(currentEuler.x);
+        thirdPersonCameraPosition.current.copy(camera.position);
+      }
+
+      previousPerspective.current = perspectiveMode;
+    }
+
+    if (perspectiveMode !== 'first') {
+      const currentEuler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
+      orbitYaw.current = perspectiveMode === 'thirdFront'
+        ? normalizeAngle(currentEuler.y - Math.PI)
+        : currentEuler.y;
+      orbitPitch.current = clampPitch(currentEuler.x);
+    }
 
     // Movement allowed if locked (desktop) or active playing without pause/inventory (mobile)
     const canControl = Boolean(controlsRef.current?.isLocked || (isMobile && !isPaused && !isInventoryOpen));
@@ -236,7 +334,7 @@ export function Player() {
       
       const euler = new Euler(0, 0, 0, 'YXZ');
       euler.setFromQuaternion(camera.quaternion);
-      const yaw = euler.y;
+      const yaw = perspectiveMode === 'first' ? euler.y : orbitYaw.current;
 
       const frontVector = new Vector3(0, 0, -1).applyAxisAngle(new Vector3(0, 1, 0), yaw);
       const sideVector = new Vector3(1, 0, 0).applyAxisAngle(new Vector3(0, 1, 0), yaw);
@@ -350,7 +448,47 @@ export function Player() {
     }
 
     // --- 7. UPDATE CAMERA POSITION ---
-    camera.position.set(pos.x, pos.y + currentEyeHeight.current, pos.z);
+    if (perspectiveMode === 'first') {
+      camera.position.set(pos.x, pos.y + currentEyeHeight.current, pos.z);
+    } else {
+      const cameraTarget = new Vector3(pos.x, pos.y + currentEyeHeight.current, pos.z);
+      const frontVector = new Vector3(0, 0, -1).applyAxisAngle(
+        new Vector3(0, 1, 0),
+        orbitYaw.current,
+      );
+      const horizontalDistance = Math.cos(orbitPitch.current) * THIRD_PERSON_DISTANCE;
+      const verticalDistance = Math.sin(orbitPitch.current) * THIRD_PERSON_DISTANCE;
+      const side = perspectiveMode === 'thirdFront' ? 1 : -1;
+      const desiredCameraPosition = cameraTarget.clone()
+        .add(frontVector.multiplyScalar(side * horizontalDistance))
+        .add(new Vector3(0, verticalDistance, 0));
+      const safeDistance = getSafeCameraDistance(
+        cameraTarget,
+        desiredCameraPosition,
+        collisionBlocks,
+      );
+      const safeCameraPosition = cameraTarget.clone().lerp(
+        desiredCameraPosition,
+        safeDistance / THIRD_PERSON_DISTANCE,
+      );
+
+      const followAlpha = 1 - Math.exp(-dt * 14);
+      thirdPersonCameraPosition.current.lerp(safeCameraPosition, followAlpha);
+      const currentSafeDistance = getSafeCameraDistance(
+        cameraTarget,
+        thirdPersonCameraPosition.current,
+        collisionBlocks,
+      );
+      if (currentSafeDistance < cameraTarget.distanceTo(thirdPersonCameraPosition.current)) {
+        thirdPersonCameraPosition.current.copy(cameraTarget).lerp(
+          thirdPersonCameraPosition.current,
+          currentSafeDistance / Math.max(cameraTarget.distanceTo(thirdPersonCameraPosition.current), 0.001),
+        );
+      }
+
+      camera.position.copy(thirdPersonCameraPosition.current);
+      camera.lookAt(cameraTarget);
+    }
     setPlayerFeetPosition(pos.clone());
   });
 
@@ -361,11 +499,15 @@ export function Player() {
         camera={camera}
         feetPosition={feetPosition.current}
         animationStateRef={characterAnimationRef}
+        isThirdPerson={perspectiveMode !== 'first'}
+        perspectiveMode={perspectiveMode}
       />
       {/* Hand model attached securely to the first-person camera */}
-      <primitive object={camera}>
-        <PlayerHand />
-      </primitive>
+      {perspectiveMode === 'first' && (
+        <primitive object={camera}>
+          <PlayerHand />
+        </primitive>
+      )}
     </>
   );
 }
