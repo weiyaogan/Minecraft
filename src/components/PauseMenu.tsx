@@ -26,6 +26,7 @@ export function PauseMenu() {
 
   const handleRespawn = () => {
     respawnPlayer();
+    handleResume();
   };
 
   return (

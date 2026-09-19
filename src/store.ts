@@ -231,49 +231,103 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   addInventory: (type, count) => {
     let remaining = count;
     set((state) => {
-      const newHotbar = [...state.hotbar];
-      const newInventory = [...state.inventory];
-      
-      // 1. Existing stacks in hotbar
+      const newHotbar = state.hotbar.map(slot => ({ ...slot }));
+      const newInventory = state.inventory.map(slot => ({ ...slot }));
+      let newOffhand = { ...state.offhand };
+
+      const activeSlotIndex = state.selectedHotbarSlot;
+      const activeSlot = newHotbar[activeSlotIndex];
+      const isMainHandEmpty = !activeSlot || !activeSlot.type || activeSlot.count <= 0;
+
+      // 1. SPECIFIC OFF-HAND REQUIREMENT:
+      // If main hand is empty and off-hand already contains the matching item with available space,
+      // prioritize stacking into off-hand so we do NOT put it in the empty main hand slot.
+      if (isMainHandEmpty && newOffhand.type === type && newOffhand.count > 0 && newOffhand.count < 64) {
+        const space = 64 - newOffhand.count;
+        const add = Math.min(space, remaining);
+        newOffhand.count += add;
+        remaining -= add;
+        if (remaining <= 0) {
+          return { offhand: newOffhand };
+        }
+      }
+
+      // 2. Existing matching stacks in main hand (if active slot already contains this item)
+      if (!isMainHandEmpty && activeSlot.type === type && activeSlot.count < 64) {
+        const space = 64 - activeSlot.count;
+        const add = Math.min(space, remaining);
+        activeSlot.count += add;
+        remaining -= add;
+        if (remaining <= 0) {
+          return { hotbar: newHotbar, offhand: newOffhand };
+        }
+      }
+
+      // 3. Existing matching stacks in other hotbar slots
       for (let i = 0; i < newHotbar.length; i++) {
-        if (newHotbar[i].type === type && newHotbar[i].count < 64) {
+        if (i === activeSlotIndex) continue;
+        if (newHotbar[i].type === type && newHotbar[i].count > 0 && newHotbar[i].count < 64) {
           const space = 64 - newHotbar[i].count;
           const add = Math.min(space, remaining);
-          newHotbar[i] = { ...newHotbar[i], count: newHotbar[i].count + add };
+          newHotbar[i].count += add;
           remaining -= add;
-          if (remaining <= 0) return { hotbar: newHotbar };
+          if (remaining <= 0) {
+            return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
+          }
         }
       }
-      // 2. Existing stacks in inventory
+
+      // 4. Existing matching stacks in off-hand (if main hand was not empty and wasn't checked in step 1)
+      if (!isMainHandEmpty && newOffhand.type === type && newOffhand.count > 0 && newOffhand.count < 64) {
+        const space = 64 - newOffhand.count;
+        const add = Math.min(space, remaining);
+        newOffhand.count += add;
+        remaining -= add;
+        if (remaining <= 0) {
+          return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
+        }
+      }
+
+      // 5. Existing matching stacks in main inventory (slots 0..26)
       for (let i = 0; i < newInventory.length; i++) {
-        if (newInventory[i].type === type && newInventory[i].count < 64) {
+        if (newInventory[i].type === type && newInventory[i].count > 0 && newInventory[i].count < 64) {
           const space = 64 - newInventory[i].count;
           const add = Math.min(space, remaining);
-          newInventory[i] = { ...newInventory[i], count: newInventory[i].count + add };
+          newInventory[i].count += add;
           remaining -= add;
-          if (remaining <= 0) return { hotbar: newHotbar, inventory: newInventory };
+          if (remaining <= 0) {
+            return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
+          }
         }
       }
-      // 3. Empty slots in hotbar
+
+      // 6. Normal insertion into empty hotbar slots (hotbar 0..8)
+      // Note: If main hand was empty and off-hand had Dirt, and off-hand had room, it was already filled in step 1.
+      // If off-hand was full or cannot stack, the item goes into empty hotbar slot here without touching the off-hand.
       for (let i = 0; i < newHotbar.length; i++) {
-        if (!newHotbar[i].type) {
+        if (!newHotbar[i].type || newHotbar[i].count <= 0) {
           const add = Math.min(64, remaining);
           newHotbar[i] = { type, count: add };
           remaining -= add;
-          if (remaining <= 0) return { hotbar: newHotbar, inventory: newInventory };
+          if (remaining <= 0) {
+            return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
+          }
         }
       }
-      // 4. Empty slots in inventory
+
+      // 7. Normal insertion into empty inventory slots (inventory 0..26)
       for (let i = 0; i < newInventory.length; i++) {
-        if (!newInventory[i].type) {
+        if (!newInventory[i].type || newInventory[i].count <= 0) {
           const add = Math.min(64, remaining);
           newInventory[i] = { type, count: add };
           remaining -= add;
-          if (remaining <= 0) return { hotbar: newHotbar, inventory: newInventory };
+          if (remaining <= 0) {
+            return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
+          }
         }
       }
-      
-      return { hotbar: newHotbar, inventory: newInventory };
+
+      return { hotbar: newHotbar, inventory: newInventory, offhand: newOffhand };
     });
     return remaining;
   },

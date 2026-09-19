@@ -48,6 +48,11 @@ export default function App() {
         setCanLock(false);
         setTimeout(() => setCanLock(true), 1500);
       }
+
+      // Auto-pause if pointer lock was released while actively playing and not in inventory
+      if (!locked && hasStartedPlaying && !useWorldStore.getState().isInventoryOpen && !useWorldStore.getState().isPaused) {
+        setPaused(true);
+      }
     };
 
     document.addEventListener('pointerlockchange', handlePointerLockChange);
@@ -153,7 +158,7 @@ export default function App() {
         </div>
       )}
 
-      <Canvas camera={{ position: [0, 5, 0], fov: 75 }}>
+      <Canvas camera={{ position: [0, 5, 0], fov: 70 }}>
         <InputManager />
         <PhysicsEngine />
         <Player />

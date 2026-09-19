@@ -96,6 +96,7 @@ export function PlayerCharacter({
 
   useFrame((_, delta) => {
     if (!rootRef.current) return;
+    if (useWorldStore.getState().isPaused) return;
     const dt = Math.min(delta, 0.1);
     const { isGrounded, isSprinting, isSneaking, isMoving, moveSpeed } = animationStateRef.current;
 

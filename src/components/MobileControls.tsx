@@ -61,7 +61,7 @@ export function MobileControls({ onLookRotate }: MobileControlsProps) {
       const vx = lookVelocity.current.x;
       const vy = lookVelocity.current.y;
 
-      if (Math.abs(vx) > 0.001 || Math.abs(vy) > 0.001) {
+      if ((Math.abs(vx) > 0.001 || Math.abs(vy) > 0.001) && !useWorldStore.getState().isPaused) {
         // Sensitivity tuned for smooth, responsive turning
         const lookSpeed = 380;
         const deltaX = vx * lookSpeed * dt;

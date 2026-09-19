@@ -101,6 +101,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       if (!enabled) return;
 
       const handleMobileCameraLook = (e: Event) => {
+        const store = useWorldStore.getState();
+        if (store.isPaused || store.isInventoryOpen) return;
         const customEvent = e as CustomEvent<{ deltaX: number; deltaY: number }>;
         if (!customEvent.detail) return;
         const { deltaX, deltaY } = customEvent.detail;
@@ -147,6 +149,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       let lastMouseY = 0;
 
       const handleMouseDown = (e: MouseEvent) => {
+        const store = useWorldStore.getState();
+        if (store.isPaused || store.isInventoryOpen) return;
         if (isLockedRef.current) return;
         const target = e.target as HTMLElement | null;
         if (target && target.closest('button, input, select, textarea')) return;
@@ -160,6 +164,9 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       };
 
       const handleMouseMove = (e: MouseEvent) => {
+        const store = useWorldStore.getState();
+        if (store.isPaused || store.isInventoryOpen) return;
+
         const isLocked = isLockedRef.current;
         const isDragging = isMouseDown && e.buttons !== 0;
 
@@ -221,7 +228,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       };
 
       const handleTouchMove = (e: TouchEvent) => {
-        if (useWorldStore.getState().isMobile) return;
+        const store = useWorldStore.getState();
+        if (store.isMobile || store.isPaused || store.isInventoryOpen) return;
         if (!touchStartRef.current || e.touches.length !== 1) return;
 
         const touch = e.touches[0];
@@ -258,7 +266,8 @@ export const CustomPointerLockControls = forwardRef<CustomPointerLockControlsRef
       const handleClick = (e: MouseEvent) => {
         // If clicking on UI or when already locked, do not re-request
         if (isLockedRef.current) return;
-        if (useWorldStore.getState().isInventoryOpen) return;
+        const store = useWorldStore.getState();
+        if (store.isInventoryOpen || store.isPaused) return;
         // Check if user clicked an interactive UI element
         const target = e.target as HTMLElement | null;
         if (target && target.closest('button, input, select, textarea')) {

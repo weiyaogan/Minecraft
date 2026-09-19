@@ -49,6 +49,7 @@ export function PlayerHand() {
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
+    if (useWorldStore.getState().isPaused) return;
     
     const stateStore = useWorldStore.getState();
     const isMining = stateStore.isMining;

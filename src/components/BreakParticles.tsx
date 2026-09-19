@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { BlockType } from '../world/blocks';
 import { particleAtlasTexture } from '../world/textures';
+import { useWorldStore } from '../store';
 
 interface Particle {
   position: Vector3;
@@ -337,6 +338,7 @@ export function BreakParticles() {
   useFrame((state, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
+    if (useWorldStore.getState().isPaused) return;
 
     const dt = Math.min(delta, 0.1);
     const active = particlesRef.current;

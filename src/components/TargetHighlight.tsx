@@ -45,8 +45,8 @@ export function TargetHighlight() {
 
   const breakingState = useRef<{
     blockKey: string | null;
-    startTime: number;
-  }>({ blockKey: null, startTime: 0 });
+    elapsedTime: number;
+  }>({ blockKey: null, elapsedTime: 0 });
 
   const attemptPlaceBlock = () => {
     initAudio();
@@ -183,14 +183,19 @@ export function TargetHighlight() {
     };
   }, []);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!highlightRef.current) return;
 
     const storeState = useWorldStore.getState();
     const isInvOpen = storeState.isInventoryOpen;
     const isPaused = storeState.isPaused;
 
-    if (isInvOpen || isPaused) {
+    // Freezes outline and cracks in place, preserves mining progress
+    if (isPaused) {
+      return;
+    }
+
+    if (isInvOpen) {
       highlightRef.current.visible = false;
       if (damageRef.current) damageRef.current.visible = false;
 
@@ -199,6 +204,7 @@ export function TargetHighlight() {
         setIsMining(false);
       }
       breakingState.current.blockKey = null;
+      breakingState.current.elapsedTime = 0;
       return;
     }
 
@@ -262,7 +268,7 @@ export function TargetHighlight() {
       // Reset mining progress if target block changed
       if (breakingState.current.blockKey !== currentBlockKey) {
         breakingState.current.blockKey = currentBlockKey;
-        breakingState.current.startTime = performance.now();
+        breakingState.current.elapsedTime = 0;
       }
 
       // Mining logic
@@ -272,10 +278,12 @@ export function TargetHighlight() {
           setIsMining(true);
         }
 
+        const dt = Math.min(delta, 0.1);
+        breakingState.current.elapsedTime += dt;
         const now = performance.now();
         const props = BLOCK_PROPERTIES[targetBlock.type];
         const breakTime = props.breakTime;
-        const elapsed = (now - breakingState.current.startTime) / 1000;
+        const elapsed = breakingState.current.elapsedTime;
         const progress = Math.min(elapsed / breakTime, 1);
 
         // Play subtle digging sound and spawn face-aligned mining particles at cadence (~210ms)
@@ -330,6 +338,7 @@ export function TargetHighlight() {
 
           removeBlock(targetBlock.x, targetBlock.y, targetBlock.z);
           breakingState.current.blockKey = null;
+          breakingState.current.elapsedTime = 0;
           if (damageRef.current) damageRef.current.visible = false;
 
           // Spawn dropped-item entity independently
@@ -354,6 +363,7 @@ export function TargetHighlight() {
           setIsMining(false);
         }
         breakingState.current.blockKey = null;
+        breakingState.current.elapsedTime = 0;
         if (damageRef.current) damageRef.current.visible = false;
       }
     } else {
@@ -364,6 +374,7 @@ export function TargetHighlight() {
       }
       highlightRef.current.visible = false;
       breakingState.current.blockKey = null;
+      breakingState.current.elapsedTime = 0;
       if (damageRef.current) damageRef.current.visible = false;
     }
   });

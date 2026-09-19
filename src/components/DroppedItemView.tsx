@@ -67,6 +67,7 @@ export function DroppedItemView({ item }: Props) {
 
   useFrame((_, delta) => {
     if (!meshRef.current || !visualMeshRef.current || isDead.current) return;
+    if (useWorldStore.getState().isPaused) return;
     
     // Decrement pickup delay (seconds)
     if (pickupDelay.current > 0) {

@@ -15,6 +15,9 @@ const NORMAL_SPEED = 4.317; // Walk speed
 const SPRINT_SPEED = 5.612; // Sprint speed
 const SNEAK_SPEED = 1.295; // Slower speed while sneaking
 
+const BASE_FOV = 70; // Minecraft Java standard baseline FOV
+const SPRINT_FOV_MULTIPLIER = 1.15; // Minecraft Java 1.15F sprint FOV expansion
+
 // Minecraft Player Dimensions
 export const PLAYER_HEIGHT = 1.8;
 export const SNEAK_HEIGHT = 1.5;
@@ -162,6 +165,7 @@ export function Player() {
   const playerYaw = useRef(0);
   const playerPitch = useRef(0);
   const thirdPersonCameraPosition = useRef(new Vector3());
+  const currentFovMultiplier = useRef(1.0);
 
   const handleLook = useCallback((deltaYaw: number, deltaPitch: number) => {
     playerYaw.current = normalizeAngle(playerYaw.current + deltaYaw);
@@ -185,15 +189,22 @@ export function Player() {
     }
   }, [respawnTrigger, camera]);
 
-  // Initialize camera position and facing angle once
+  // Initialize camera position, facing angle, and baseline FOV
   useEffect(() => {
     camera.position.set(feetPosition.current.x, feetPosition.current.y + EYE_HEIGHT, feetPosition.current.z);
+    const pCam = camera as PerspectiveCamera;
+    pCam.fov = BASE_FOV;
+    pCam.updateProjectionMatrix();
     const euler = new Euler(0, 0, 0, 'YXZ').setFromQuaternion(camera.quaternion);
     playerYaw.current = euler.y;
     playerPitch.current = euler.x;
   }, [camera]);
 
   useFrame((_, delta) => {
+    // Stop all gameplay simulation, movement, gravity, jumping, and falling immediately when paused.
+    // The player remains exactly where they are in mid-air or on ground.
+    if (useWorldStore.getState().isPaused) return;
+
     const dt = Math.min(delta, 0.1); // Cap delta to prevent massive physics spikes
     const pos = feetPosition.current;
     const EPSILON = 0.001;
@@ -314,10 +325,14 @@ export function Player() {
       }
     }
 
+    // Smooth Minecraft Java-style FOV expansion
+    const targetMultiplier = isSprinting.current ? SPRINT_FOV_MULTIPLIER : 1.0;
+    // Minecraft Java interpolates FOV smoothly with responsive easing
+    currentFovMultiplier.current += (targetMultiplier - currentFovMultiplier.current) * Math.min(1, 8.0 * dt);
     const pCam = camera as PerspectiveCamera;
-    const targetFov = isSprinting.current ? 85 : 75;
-    if (Math.abs(pCam.fov - targetFov) > 0.1) {
-      pCam.fov += (targetFov - pCam.fov) * 10 * dt;
+    const currentFov = BASE_FOV * currentFovMultiplier.current;
+    if (Math.abs(pCam.fov - currentFov) > 0.01) {
+      pCam.fov = currentFov;
       pCam.updateProjectionMatrix();
     }
 

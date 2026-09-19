@@ -11,6 +11,34 @@ export function InputManager() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useWorldStore.getState();
 
+      if (e.code === 'Escape') {
+        if (state.isInventoryOpen) {
+          state.setInventoryOpen(false);
+          const canvas = document.querySelector('canvas');
+          if (canvas) {
+            try { canvas.requestPointerLock(); } catch (err) {}
+          }
+          return;
+        }
+
+        if (!state.isPaused) {
+          state.setPaused(true);
+          try { document.exitPointerLock(); } catch (err) {}
+        } else {
+          state.setPaused(false);
+          const canvas = document.querySelector('canvas');
+          if (canvas) {
+            try { canvas.requestPointerLock(); } catch (err) {}
+          }
+        }
+        return;
+      }
+
+      // When paused, do not process other gameplay keys
+      if (state.isPaused) {
+        return;
+      }
+
       if (e.code === 'KeyE') {
         if (state.isInventoryOpen) {
           state.setInventoryOpen(false);
@@ -20,15 +48,7 @@ export function InputManager() {
           }
         } else {
           state.setInventoryOpen(true);
-          document.exitPointerLock();
-        }
-      }
-
-      if (e.code === 'Escape') {
-        if (state.isInventoryOpen) {
-          state.setInventoryOpen(false);
-        } else {
-          state.setPaused(!state.isPaused);
+          try { document.exitPointerLock(); } catch (err) {}
         }
       }
 
