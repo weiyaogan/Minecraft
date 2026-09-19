@@ -10,6 +10,7 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+      dedupe: ['react', 'react-dom', 'three', '@react-three/fiber'],
     },
     server: {
       // Replit previews use a proxied *.replit.dev hostname.
