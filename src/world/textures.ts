@@ -1,8 +1,15 @@
-import { TextureLoader, NearestFilter, SRGBColorSpace, CanvasTexture } from 'three';
+import { TextureLoader, NearestFilter, SRGBColorSpace, CanvasTexture, Texture } from 'three';
 
 const loader = new TextureLoader();
 
 function createTexture(base64: string) {
+  if (typeof document === 'undefined') {
+    const tex = new Texture();
+    tex.magFilter = NearestFilter;
+    tex.minFilter = NearestFilter;
+    tex.colorSpace = SRGBColorSpace;
+    return tex;
+  }
   const tex = loader.load("data:image/png;base64," + base64);
   tex.magFilter = NearestFilter;
   tex.minFilter = NearestFilter;
@@ -22,7 +29,13 @@ export const dirtTexture = createTexture(DIRT_B64);
 export const stoneTexture = createTexture(STONE_B64);
 
 const BEDROCK_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAABoElEQVR4AXXBoW0kQRRF0Tu7DY0cgcGDjRoZ/hBKE0MFUCFsCB1ABdEBGPwIjAo+YGxomXunJLc0snbPubTWvmxzTxIRwdRaY993MhPb3JPEwo0kIoJ/WdeVKSKICFprlFKYbLNwcxwHtpnGGKzryqnWSu8dSUylFCKCzEQSCzf7vpOZTJI4joNSChFBZiIJ25xsM0li4VtE0HtnWtcV29jmVGvlp9Yai21sIwlJTLY5SeI4DjKTyTbTGINSCkutlSkzeXh44PPzk6nWypSZlFI41Vo5tda4tNa++GabfxljsK4r9yQxLdxEBNNxHOz7Tu8dSZxqrfzPwk3vnWldV3rvTLaRxHEcnGxzqrWSmfx+fn7+8/j4yPV65fX1lanWyrZtvLy88P7+zrIsXK9Xtm1j2zY+Pj54e3tjujw9PX2VUjjZRhKniGDKTE4RwdRaYymlYJt7tjlFBJNtTraZSin84qbWylRrZYyBJCQx9d7pvTPGYJKEJGqtRASX1toX32zzkySmiGDKTGwzSWKxzb0xBvu+M2Ump8zENidJTH8B+4bTnJxNiA4AAAAASUVORK5CYII=";
+import { PARTICLE_ATLAS_B64 } from './particleAtlas';
+
 export const bedrockTexture = createTexture(BEDROCK_B64);
+
+// 64x32 Atlas combining authentic textures for pixelated fragment digging particles
+// Layout: (0,0)=grassSide, (16,0)=dirt, (32,0)=grassTop tinted, (48,0)=stone, (0,16)=sand, (16,16)=bedrock
+export const particleAtlasTexture = createTexture(PARTICLE_ATLAS_B64);
 
 export const TEXTURE_URLS = {
   bedrock: "data:image/png;base64," + BEDROCK_B64,

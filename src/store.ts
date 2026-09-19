@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Block, WORLD_BLOCKS, BlockType } from './world/blocks';
 import { Vector3 } from 'three';
 import { playItemDropSound } from './utils/audio';
+import { computeItemThrowSpawnAndVelocity } from './utils/itemThrow';
 
 export interface DroppedItem {
   id: string;
@@ -94,8 +95,8 @@ interface WorldState {
   clickSlot: (container: 'hotbar'|'inventory'|'offhand', index: number, isRightClick: boolean, isShift: boolean) => void;
   distributeItems: (slots: {container: 'hotbar'|'inventory', index: number}[]) => void;
   
-  throwCurrentItem: (dropAll: boolean, playerPosOrCameraDir: Vector3, optionalCameraDir?: Vector3) => void;
-  throwInventoryItem: (container: 'hotbar'|'inventory'|'offhand'|'cursor', index: number, dropAll: boolean, playerPosOrCameraDir: Vector3, optionalCameraDir?: Vector3) => void;
+  throwCurrentItem: (dropAll: boolean, playerPosOrCameraDir?: Vector3, optionalCameraDir?: Vector3) => void;
+  throwInventoryItem: (container: 'hotbar'|'inventory'|'offhand'|'cursor', index: number, dropAll: boolean, playerPosOrCameraDir?: Vector3, optionalCameraDir?: Vector3) => void;
 
   droppedItems: DroppedItem[];
   addDroppedItem: (type: BlockType, position: [number, number, number], count: number, velocity?: [number, number, number], pickupDelay?: number) => void;
@@ -431,7 +432,6 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   }),
 
   throwCurrentItem: (dropAll, playerPosOrCameraDir, optionalCameraDir) => set((state) => {
-    const cameraDir = optionalCameraDir || playerPosOrCameraDir;
     const slot = state.hotbar[state.selectedHotbarSlot];
     if (!slot || !slot.type || slot.count <= 0) return state;
     
@@ -440,61 +440,19 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     
     const newHotbar = [...state.hotbar];
     newHotbar[state.selectedHotbarSlot] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
-    
-    // Horizontal facing direction from cameraDir
-    let hx = cameraDir.x;
-    let hz = cameraDir.z;
-    const len = Math.hypot(hx, hz);
-    if (len > 0.001) {
-      hx /= len;
-      hz /= len;
-    } else {
-      hx = 0;
-      hz = -1;
-    }
 
-    // Right vector on horizontal plane (main-hand side)
-    const rx = -hz;
-    const rz = hx;
-
-    // Lower-to-middle body height
-    const spawnY = state.playerFeetPosition.y + state.playerHeight * 0.45;
-
-    // In front of player, near main-hand side
-    let spawnX = state.playerFeetPosition.x + hx * 0.35 + rx * 0.15;
-    let spawnZ = state.playerFeetPosition.z + hz * 0.35 + rz * 0.15;
-
-    // Solid block / wall check to prevent spawning inside a wall or on far side of wall
-    const isSolid = (x: number, y: number, z: number) => {
-      return state.blocks.some(b => 
-        Math.abs(b.x - x) < 0.48 &&
-        Math.abs(b.y - y) < 0.48 &&
-        Math.abs(b.z - z) < 0.48
-      );
-    };
-
-    if (isSolid(spawnX, spawnY, spawnZ)) {
-      spawnX = state.playerFeetPosition.x + hx * 0.15;
-      spawnZ = state.playerFeetPosition.z + hz * 0.15;
-      if (isSolid(spawnX, spawnY, spawnZ)) {
-        spawnX = state.playerFeetPosition.x;
-        spawnZ = state.playerFeetPosition.z;
-      }
-    }
-
-    // Velocity: ~3 blocks/s forward, ~1.5 blocks/s up
-    const fSpeed = 3.0 + (Math.random() - 0.5) * 0.2;
-    const upSpeed = 1.5 + (Math.random() - 0.5) * 0.1;
-    const velocity: [number, number, number] = [
-      hx * fSpeed + (Math.random() - 0.5) * 0.1,
-      upSpeed,
-      hz * fSpeed + (Math.random() - 0.5) * 0.1
-    ];
+    const { position, velocity } = computeItemThrowSpawnAndVelocity(
+      state.playerFeetPosition,
+      state.playerHeight,
+      state.blocks,
+      playerPosOrCameraDir,
+      optionalCameraDir
+    );
 
     const newItem: DroppedItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: slot.type,
-      position: [spawnX, spawnY, spawnZ],
+      position,
       velocity,
       count: dropCount,
       pickupDelay: 0.5, // 0.5 seconds pickup delay for player throws
@@ -509,47 +467,13 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   }),
 
   throwInventoryItem: (container, index, dropAll, playerPosOrCameraDir, optionalCameraDir) => set((state) => {
-    const cameraDir = optionalCameraDir || playerPosOrCameraDir;
-    // Horizontal facing direction from cameraDir
-    let hx = cameraDir.x;
-    let hz = cameraDir.z;
-    const len = Math.hypot(hx, hz);
-    if (len > 0.001) {
-      hx /= len;
-      hz /= len;
-    } else {
-      hx = 0;
-      hz = -1;
-    }
-    const rx = -hz;
-    const rz = hx;
-    const spawnY = state.playerFeetPosition.y + state.playerHeight * 0.45;
-    let spawnX = state.playerFeetPosition.x + hx * 0.35 + rx * 0.15;
-    let spawnZ = state.playerFeetPosition.z + hz * 0.35 + rz * 0.15;
-
-    const isSolid = (x: number, y: number, z: number) => {
-      return state.blocks.some(b => 
-        Math.abs(b.x - x) < 0.48 &&
-        Math.abs(b.y - y) < 0.48 &&
-        Math.abs(b.z - z) < 0.48
-      );
-    };
-    if (isSolid(spawnX, spawnY, spawnZ)) {
-      spawnX = state.playerFeetPosition.x + hx * 0.15;
-      spawnZ = state.playerFeetPosition.z + hz * 0.15;
-      if (isSolid(spawnX, spawnY, spawnZ)) {
-        spawnX = state.playerFeetPosition.x;
-        spawnZ = state.playerFeetPosition.z;
-      }
-    }
-
-    const fSpeed = 3.0 + (Math.random() - 0.5) * 0.2;
-    const upSpeed = 1.5 + (Math.random() - 0.5) * 0.1;
-    const velocity: [number, number, number] = [
-      hx * fSpeed + (Math.random() - 0.5) * 0.1,
-      upSpeed,
-      hz * fSpeed + (Math.random() - 0.5) * 0.1
-    ];
+    const { position, velocity } = computeItemThrowSpawnAndVelocity(
+      state.playerFeetPosition,
+      state.playerHeight,
+      state.blocks,
+      playerPosOrCameraDir,
+      optionalCameraDir
+    );
 
     if (container === 'cursor') {
       if (!state.cursorItem || !state.cursorItem.type) return state;
@@ -558,7 +482,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       const newItem: DroppedItem = {
         id: Math.random().toString(36).substr(2, 9),
         type: state.cursorItem.type,
-        position: [spawnX, spawnY, spawnZ],
+        position,
         velocity,
         count: dropCount,
         pickupDelay: 0.5,
@@ -583,7 +507,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     const newItem: DroppedItem = {
       id: Math.random().toString(36).substr(2, 9),
       type: slot.type,
-      position: [spawnX, spawnY, spawnZ],
+      position,
       velocity,
       count: dropCount,
       pickupDelay: 0.5,
