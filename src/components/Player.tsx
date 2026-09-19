@@ -5,6 +5,7 @@ import { useKeyboard } from '../hooks/useKeyboard';
 import { Vector3, Euler, PerspectiveCamera } from 'three';
 import { useWorldStore } from '../store';
 import { PlayerHand } from './PlayerHand';
+import { PlayerCharacter, PlayerAnimationState } from './PlayerCharacter';
 import { playJumpSound } from '../utils/audio';
 
 const GRAVITY = 30;
@@ -68,6 +69,13 @@ export function Player() {
   // Persist the actual position decoupled from the camera
   const feetPosition = useRef(new Vector3(0, 5, 0));
   const currentEyeHeight = useRef(EYE_HEIGHT);
+  const characterAnimationRef = useRef<PlayerAnimationState>({
+    isGrounded: false,
+    isSprinting: false,
+    isSneaking: false,
+    isMoving: false,
+    moveSpeed: NORMAL_SPEED,
+  });
   
   const setPlayerFeetPosition = useWorldStore(state => state.setPlayerFeetPosition);
   const setPlayerHeight = useWorldStore(state => state.setPlayerHeight);
@@ -329,6 +337,12 @@ export function Player() {
       }
     }
 
+    characterAnimationRef.current.isGrounded = isGrounded;
+    characterAnimationRef.current.isSprinting = isSprinting.current;
+    characterAnimationRef.current.isSneaking = wantsToSneak;
+    characterAnimationRef.current.isMoving = Math.abs(dx) > EPSILON || Math.abs(dz) > EPSILON;
+    characterAnimationRef.current.moveSpeed = speed;
+
     // --- 6. VOID RESPAWN ---
     if (pos.y < -20) {
       pos.set(0, 5, 0);
@@ -343,6 +357,11 @@ export function Player() {
   return (
     <>
       <CustomPointerLockControls ref={controlsRef} />
+      <PlayerCharacter
+        camera={camera}
+        feetPosition={feetPosition.current}
+        animationStateRef={characterAnimationRef}
+      />
       {/* Hand model attached securely to the first-person camera */}
       <primitive object={camera}>
         <PlayerHand />

@@ -8,25 +8,25 @@ import {
   createSteveLegMaterials,
 } from '../utils/playerTextures';
 
-export interface PlayerCharacterProps {
-  camera: Camera;
-  feetPosition: Vector3;
+export interface PlayerAnimationState {
   isGrounded: boolean;
   isSprinting: boolean;
   isSneaking: boolean;
   isMoving: boolean;
   moveSpeed: number;
+}
+
+export interface PlayerCharacterProps {
+  camera: Camera;
+  feetPosition: Vector3;
+  animationStateRef: { current: PlayerAnimationState };
   isThirdPerson?: boolean;
 }
 
 export function PlayerCharacter({
   camera,
   feetPosition,
-  isGrounded,
-  isSprinting,
-  isSneaking,
-  isMoving,
-  moveSpeed,
+  animationStateRef,
   isThirdPerson = false,
 }: PlayerCharacterProps) {
   const rootRef = useRef<Group>(null);
@@ -54,6 +54,7 @@ export function PlayerCharacter({
   useFrame((_, delta) => {
     if (!rootRef.current) return;
     const dt = Math.min(delta, 0.1);
+    const { isGrounded, isSprinting, isSneaking, isMoving, moveSpeed } = animationStateRef.current;
 
     // 1. Position character at the player's physical feet location
     rootRef.current.position.copy(feetPosition);
