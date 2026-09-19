@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useWorldStore } from '../store';
 import { BlockType } from '../world/blocks';
 import { StatusBars } from './StatusBars';
+import { HUD_HOTBAR_TRAY_TEXTURE, HUD_ACTIVE_SLOT_TEXTURE } from '../assets/hudTextures';
 
 const HOTBAR_ITEM_SIZE = 24;
 const SLOT_WIDTH = 40;
@@ -178,7 +179,7 @@ export function Hotbar() {
             style={{
               width: `${TOTAL_HUD_WIDTH}px`,
               height: `${TRAY_HEIGHT}px`,
-              backgroundImage: 'url(/hud_hotbar_tray.png)',
+              backgroundImage: `url(${HUD_HOTBAR_TRAY_TEXTURE})`,
               backgroundSize: '100% 100%',
               imageRendering: 'pixelated',
               boxSizing: 'border-box',
@@ -213,9 +214,9 @@ export function Hotbar() {
               style={{
                 width: '48px',
                 height: '48px',
-                top: '-4px',
-                left: `${selectedHotbarSlot * SLOT_WIDTH - 4}px`,
-                backgroundImage: 'url(/hud_active_slot.png)',
+                top: '-2px',
+                left: `${selectedHotbarSlot * SLOT_WIDTH - 2}px`,
+                backgroundImage: `url(${HUD_ACTIVE_SLOT_TEXTURE})`,
                 backgroundSize: '100% 100%',
                 imageRendering: 'pixelated',
                 boxSizing: 'border-box',

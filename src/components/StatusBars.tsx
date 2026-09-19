@@ -9,6 +9,8 @@ import {
   HUD_DRUMSTICK_HALF_TEXTURE,
   HUD_DRUMSTICK_EMPTY_TEXTURE,
   HUD_DRUMSTICKS_FULL_TEXTURE,
+  HUD_XP_BAR_TEXTURE,
+  HUD_XP_FILL_TEXTURE,
 } from '../assets/hudTextures';
 
 interface HeartProps {
@@ -229,7 +231,7 @@ export function StatusBars() {
         style={{
           width: '364px',
           height: '10px',
-          backgroundImage: 'url(/hud_xp_bar.png)',
+          backgroundImage: `url(${HUD_XP_BAR_TEXTURE})`,
           backgroundSize: '100% 100%',
           imageRendering: 'pixelated',
           boxSizing: 'border-box',
@@ -241,7 +243,7 @@ export function StatusBars() {
             className="absolute inset-y-0 left-0 overflow-hidden"
             style={{
               width: `${Math.min(100, Math.max(0, xpProgress * 100))}%`,
-              backgroundImage: 'url(/hud_xp_fill.png)',
+              backgroundImage: `url(${HUD_XP_FILL_TEXTURE})`,
               backgroundSize: '364px 10px',
               imageRendering: 'pixelated',
             }}
