@@ -133,6 +133,11 @@ interface WorldState {
   addExhaustion: (amount: number) => void;
   feed: (foodPoints: number, saturationPoints: number) => void;
 
+  xpLevel: number;
+  xpProgress: number;
+  setXp: (level: number, progress: number) => void;
+  addXp: (amount: number) => void;
+
   isBlocking: boolean;
   setIsBlocking: (isBlocking: boolean) => void;
   isEatingOrDrinking: boolean;
@@ -715,6 +720,22 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       hunger: newHunger,
       saturation: newSaturation,
     };
+  }),
+
+  xpLevel: 1,
+  xpProgress: 0.45,
+  setXp: (level, progress) => set({
+    xpLevel: Math.max(0, level),
+    xpProgress: Math.max(0, Math.min(1, progress)),
+  }),
+  addXp: (amount) => set((state) => {
+    let newProg = state.xpProgress + amount;
+    let newLvl = state.xpLevel;
+    while (newProg >= 1.0) {
+      newProg -= 1.0;
+      newLvl += 1;
+    }
+    return { xpLevel: newLvl, xpProgress: newProg };
   }),
   isBlocking: false,
   setIsBlocking: (isBlocking) => set({ isBlocking }),

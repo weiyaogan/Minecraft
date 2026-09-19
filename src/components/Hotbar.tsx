@@ -76,20 +76,22 @@ export function Hotbar() {
         {offhand?.type && (
           <div
             onClick={() => useWorldStore.getState().swapOffhand()}
-            className="pointer-events-auto cursor-pointer"
+            className="pointer-events-auto cursor-pointer rounded-[2px]"
             style={{
-              backgroundColor: '#8b8b8b',
-              border: '2px solid #222222',
-              padding: '2px'
+              backgroundColor: 'rgba(21, 26, 33, 0.88)',
+              border: '1.5px solid #2a3442',
+              padding: '2px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.5)',
             }}
             title="Offhand Item (Click to swap)"
           >
             <div 
-              className="relative flex items-center justify-center bg-[#8b8b8b]"
+              className="relative flex items-center justify-center rounded-[1px]"
               style={{
                 width: '40px',
                 height: '40px',
-                boxShadow: 'inset 2px 2px 0px 0px #373737, inset -2px -2px 0px 0px #ffffff',
+                backgroundColor: '#1c222b',
+                boxShadow: 'inset 0 0 0 1px #374151',
               }}
             >
               <MiniBlock type={offhand.type} cubeSize={HOTBAR_ITEM_SIZE} />
@@ -98,18 +100,19 @@ export function Hotbar() {
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5 items-center">
-          {/* Status Bars: Health (Left), Hunger (Right) */}
+        <div className="flex flex-col gap-1 items-center">
+          {/* Status Bars: Health (Left), Level (Center), Hunger (Right), XP Bar (Below) */}
           <StatusBars />
 
-          {/* 9 Hotbar slots */}
+          {/* 9 Hotbar slots matching the clean dark aesthetic in reference image */}
           <div 
-            className="flex"
+            className="flex rounded-[2px]"
             style={{
-              backgroundColor: '#8b8b8b',
-              border: '2px solid #222222',
+              backgroundColor: 'rgba(21, 26, 33, 0.88)',
+              border: '1.5px solid #2a3442',
               padding: '2px',
-              gap: '2px'
+              gap: '2px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
             }}
           >
             {hotbar.map((slot, index) => {
@@ -119,14 +122,15 @@ export function Hotbar() {
                 <div 
                   key={index} 
                   onClick={() => setSelectedHotbarSlot(index)}
-                  className="relative flex items-center justify-center bg-[#8b8b8b] pointer-events-auto cursor-pointer select-none"
+                  className="relative flex items-center justify-center pointer-events-auto cursor-pointer select-none rounded-[1px] transition-all duration-75"
                   style={{
                     width: '40px',
                     height: '40px',
-                    // Classic Minecraft unselected slot bevel
+                    backgroundColor: '#1c222b',
+                    // Prominent bright white/light-silver border for active slot (like screenshot)
                     boxShadow: isSelected 
-                      ? 'inset 0 0 0 2px white, inset 0 0 0 3px #bfbfbf' 
-                      : 'inset 2px 2px 0px 0px #373737, inset -2px -2px 0px 0px #ffffff',
+                      ? 'inset 0 0 0 2.5px #f8fafc, 0 0 6px rgba(255, 255, 255, 0.35)' 
+                      : 'inset 0 0 0 1px #374151',
                     zIndex: isSelected ? 10 : 1
                   }}
                 >
@@ -144,17 +148,18 @@ export function Hotbar() {
             id="hotbar-inventory-btn"
             data-mobile-control="true"
             onClick={() => useWorldStore.getState().setInventoryOpen(true)}
-            className="pointer-events-auto flex items-center justify-center bg-[#8b8b8b] active:bg-[#6e6e6e] text-white font-bold cursor-pointer select-none transition-colors"
+            className="pointer-events-auto flex items-center justify-center active:brightness-75 text-white font-bold cursor-pointer select-none transition-all rounded-[2px]"
             style={{
               width: '44px',
               height: '44px',
-              border: '2px solid #222222',
-              boxShadow: 'inset 2px 2px 0px 0px #ffffff, inset -2px -2px 0px 0px #373737',
+              backgroundColor: 'rgba(21, 26, 33, 0.88)',
+              border: '1.5px solid #2a3442',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px #374151',
             }}
             title="Open Inventory (...)"
             aria-label="Open Inventory"
           >
-            <span className="text-xl tracking-tighter leading-none select-none font-mono">•••</span>
+            <span className="text-xl tracking-tighter leading-none select-none font-mono text-slate-200">•••</span>
           </button>
         )}
       </div>
