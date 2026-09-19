@@ -3,10 +3,12 @@ import { useWorldStore } from '../store';
 import { BlockType } from '../world/blocks';
 import { StatusBars } from './StatusBars';
 
-const HOTBAR_ITEM_SIZE = 24;
+const HOTBAR_ITEM_SIZE = 26;
+const SLOT_SIZE = 48; // Exactly 48px per slot * 9 = 432px total width
+const TOTAL_HUD_WIDTH = SLOT_SIZE * 9; // 432px
 
 // Reusable mini 3D isometric block preview for voxel blocks
-export function MiniBlock({ type, cubeSize = 22 }: { type: BlockType; cubeSize?: number }) {
+export function MiniBlock({ type, cubeSize = 24 }: { type: BlockType; cubeSize?: number }) {
   const getColors = (t: BlockType) => {
     switch (t) {
       case 'grass': return { top: '#5b8f32', side1: '#866043', side2: '#684830' };
@@ -126,70 +128,117 @@ export function Hotbar() {
         {selectedItem?.type === 'grass' ? 'Grass Block' : selectedItem?.type}
       </div>
 
-      {/* Main HUD Bar Anchor Container: ALWAYS FLAT as requested */}
+      {/* Main HUD Bar Anchor Container: Flat, Centered, Matching image.png */}
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 pointer-events-none z-30 flex items-end gap-2 max-w-full px-2 scale-90 sm:scale-100 origin-center">
         {/* Offhand Slot (Optional) */}
         {offhand?.type && (
           <div
             onClick={() => useWorldStore.getState().swapOffhand()}
-            className="pointer-events-auto cursor-pointer"
+            className="pointer-events-auto cursor-pointer relative"
             style={{
-              width: '46px',
-              height: '46px',
-              border: '3px solid #777777',
-              borderTopColor: '#bbbbbb',
-              borderLeftColor: '#bbbbbb',
-              borderRightColor: '#777777',
-              borderBottomColor: '#777777',
+              width: `${SLOT_SIZE}px`,
+              height: `${SLOT_SIZE}px`,
+              border: '2px solid #000000',
               backgroundColor: 'rgba(0, 0, 0, 0.45)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginRight: '6px',
+              marginRight: '8px',
+              boxSizing: 'border-box',
             }}
             title="Offhand Item (Click to swap)"
           >
+            {/* Beveled gray frame inside offhand slot */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                border: '3px solid #6b6b6b',
+                borderTopColor: '#b4b4b4',
+                borderLeftColor: '#b4b4b4',
+                boxShadow: 'inset 0 0 0 1px #3a3a3a',
+              }}
+            />
             <MiniBlock type={offhand.type} cubeSize={HOTBAR_ITEM_SIZE} />
-            <StackQuantity count={offhand.count} fontSize={13} style={{ bottom: '2px', right: '3px' }} />
+            <StackQuantity count={offhand.count} fontSize={13} style={{ bottom: '4px', right: '5px' }} />
           </div>
         )}
 
-        {/* Integrated HUD: StatusBars (Hearts, XP, Hunger) + 9 Individual Boxed Slots */}
-        <div className="flex flex-col items-center select-none">
+        {/* Integrated HUD: StatusBars (Hearts, XP, Hunger) + Continuous 9-Slot Hotbar Tray */}
+        <div 
+          className="flex flex-col items-center select-none"
+          style={{ width: `${TOTAL_HUD_WIDTH}px` }}
+        >
           {/* Status Bars: Health Hearts, Hunger Drumsticks, Segmented XP Bar */}
           <StatusBars />
 
-          {/* 9 Square Hotbar Slots matching EXACTLY the uploaded reference image */}
-          <div className="flex items-center gap-[5px] select-none">
+          {/* Continuous Hotbar Tray matching EXACTLY the uploaded reference image */}
+          <div 
+            className="relative flex items-center select-none"
+            style={{
+              width: `${TOTAL_HUD_WIDTH}px`,
+              height: `${SLOT_SIZE}px`,
+              border: '2px solid #000000',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              boxSizing: 'border-box',
+            }}
+          >
+            {/* Inactive Slots in continuous contiguous row */}
             {hotbar.map((slot, index) => {
-              const isSelected = index === selectedHotbarSlot;
-              
               return (
                 <div 
                   key={index} 
                   onClick={() => setSelectedHotbarSlot(index)}
-                  className="relative flex items-center justify-center pointer-events-auto cursor-pointer select-none transition-none"
+                  className="relative flex items-center justify-center pointer-events-auto cursor-pointer select-none"
                   style={{
-                    width: isSelected ? '48px' : '46px',
-                    height: isSelected ? '48px' : '46px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    /* Inactive: light gray top/left, medium gray bottom/right, dark inside line */
-                    border: isSelected ? '4px solid #ffffff' : '3.5px solid #7b7b7b',
-                    borderTopColor: isSelected ? '#ffffff' : '#b8b8b8',
-                    borderLeftColor: isSelected ? '#ffffff' : '#b8b8b8',
-                    borderRightColor: isSelected ? '#a8a8a8' : '#646464',
-                    borderBottomColor: isSelected ? '#a8a8a8' : '#646464',
-                    boxShadow: isSelected
-                      ? 'inset 0 0 0 1px #888888, 0 0 4px rgba(0, 0, 0, 0.8)'
-                      : 'inset 0 0 0 1px #3a3a3a',
+                    width: `${SLOT_SIZE}px`,
+                    height: '100%',
+                    borderRight: index < 8 ? '2px solid #000000' : 'none',
+                    boxSizing: 'border-box',
                   }}
                   title={`Slot ${index + 1}`}
                 >
+                  {/* Beveled silver-gray frame inside each slot */}
+                  <div 
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      border: '3.5px solid #6b6b6b',
+                      borderTopColor: '#b8b8b8',
+                      borderLeftColor: '#b8b8b8',
+                      boxShadow: 'inset 0 0 0 1px #363636',
+                    }}
+                  />
+
+                  {/* Slot Item */}
                   {slot.type && <MiniBlock type={slot.type} cubeSize={HOTBAR_ITEM_SIZE} />}
-                  <StackQuantity count={slot.count} fontSize={13} style={{ bottom: '2px', right: '3px' }} />
+                  <StackQuantity count={slot.count} fontSize={13} style={{ bottom: '4px', right: '5px' }} />
                 </div>
               );
             })}
+
+            {/* Active Protruding White Raised Frame (Slot 1 in reference image) */}
+            <div
+              className="absolute pointer-events-none transition-none select-none z-20"
+              style={{
+                width: `${SLOT_SIZE + 6}px`,
+                height: `${SLOT_SIZE + 6}px`,
+                top: '-3px',
+                left: `${selectedHotbarSlot * SLOT_SIZE - 3}px`,
+                border: '2px solid #000000',
+                boxSizing: 'border-box',
+              }}
+            >
+              {/* Thick raised pure white / silver beveled frame */}
+              <div
+                className="w-full h-full"
+                style={{
+                  border: '4px solid #cccccc',
+                  borderTopColor: '#ffffff',
+                  borderLeftColor: '#ffffff',
+                  boxShadow: 'inset 0 0 0 1px #808080, 0 0 3px rgba(0, 0, 0, 0.75)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -201,14 +250,11 @@ export function Hotbar() {
             onClick={() => useWorldStore.getState().setInventoryOpen(true)}
             className="pointer-events-auto flex items-center justify-center active:brightness-75 text-white font-bold cursor-pointer select-none transition-all ml-2"
             style={{
-              width: '46px',
-              height: '46px',
+              width: `${SLOT_SIZE}px`,
+              height: `${SLOT_SIZE}px`,
               backgroundColor: 'rgba(0, 0, 0, 0.45)',
-              border: '3px solid #777777',
-              borderTopColor: '#bbbbbb',
-              borderLeftColor: '#bbbbbb',
-              borderRightColor: '#777777',
-              borderBottomColor: '#777777',
+              border: '2px solid #000000',
+              boxSizing: 'border-box',
             }}
             title="Open Inventory (...)"
             aria-label="Open Inventory"
