@@ -9,9 +9,11 @@ export function useKeyboard() {
     jump: false,
     shift: false,
     sprint: false,
+    sprintKey: false,
   });
 
   const lastWPressTime = useRef(0);
+  const isDoubleTapSprint = useRef(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -23,13 +25,22 @@ export function useKeyboard() {
         case 'ArrowUp':
           if (!keys.current.forward) {
             const now = performance.now();
-            if (now - lastWPressTime.current < 300) {
-              keys.current.sprint = true;
+            if (now - lastWPressTime.current < 350) {
+              isDoubleTapSprint.current = true;
             }
             lastWPressTime.current = now;
           }
           keys.current.forward = true;
+          keys.current.sprint = keys.current.sprintKey || isDoubleTapSprint.current;
           break;
+
+        case 'ControlLeft':
+        case 'ControlRight':
+        case 'KeyR':
+          keys.current.sprintKey = true;
+          keys.current.sprint = true;
+          break;
+
         case 'KeyA':
         case 'ArrowLeft':
           keys.current.left = true;
@@ -48,6 +59,8 @@ export function useKeyboard() {
         case 'ShiftLeft':
         case 'ShiftRight':
           keys.current.shift = true;
+          isDoubleTapSprint.current = false;
+          keys.current.sprint = false;
           break;
       }
     };
@@ -57,8 +70,17 @@ export function useKeyboard() {
         case 'KeyW':
         case 'ArrowUp':
           keys.current.forward = false;
-          keys.current.sprint = false; // Stop sprinting when W is released
+          isDoubleTapSprint.current = false;
+          keys.current.sprint = keys.current.sprintKey;
           break;
+
+        case 'ControlLeft':
+        case 'ControlRight':
+        case 'KeyR':
+          keys.current.sprintKey = false;
+          keys.current.sprint = isDoubleTapSprint.current;
+          break;
+
         case 'KeyA':
         case 'ArrowLeft':
           keys.current.left = false;
@@ -90,6 +112,8 @@ export function useKeyboard() {
       keys.current.jump = false;
       keys.current.shift = false;
       keys.current.sprint = false;
+      keys.current.sprintKey = false;
+      isDoubleTapSprint.current = false;
     };
 
     document.addEventListener('keydown', handleKeyDown);

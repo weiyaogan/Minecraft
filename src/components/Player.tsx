@@ -308,30 +308,32 @@ export function Player() {
       }
     }
 
-    // --- 4.5 SPRINT LOGIC ---
+    // --- 4.5 SPRINT LOGIC (Minecraft Java Edition authentic behavior) ---
     if (wantsToSneak || !inputForward || isInventoryOpen || isPaused || !canControl) {
-      keys.sprint = false;
       isSprinting.current = false;
       if (virtualInputs.sprint) {
         useWorldStore.getState().setVirtualInput('sprint', false);
       }
-    } else if (inputSprint && isGrounded && !isSprinting.current) {
-      isSprinting.current = true;
-    } else if (inputSprint && !isGrounded && !isSprinting.current) {
-      // Cannot start sprinting in mid-air
-      keys.sprint = false;
-      if (virtualInputs.sprint) {
-        useWorldStore.getState().setVirtualInput('sprint', false);
+    } else if (inputSprint) {
+      if (!isSprinting.current) {
+        // Start sprint when moving forward and grounded
+        if (isGrounded) {
+          isSprinting.current = true;
+        }
       }
+      // When already sprinting, sprint is maintained seamlessly in the air while jumping
+    } else {
+      // Stopped holding sprint / double-tap expired
+      isSprinting.current = false;
     }
 
     // Smooth Minecraft Java-style FOV expansion
     const targetMultiplier = isSprinting.current ? SPRINT_FOV_MULTIPLIER : 1.0;
     // Minecraft Java interpolates FOV smoothly with responsive easing
-    currentFovMultiplier.current += (targetMultiplier - currentFovMultiplier.current) * Math.min(1, 8.0 * dt);
+    currentFovMultiplier.current += (targetMultiplier - currentFovMultiplier.current) * Math.min(1, 12.0 * dt);
     const pCam = camera as PerspectiveCamera;
     const currentFov = BASE_FOV * currentFovMultiplier.current;
-    if (Math.abs(pCam.fov - currentFov) > 0.01) {
+    if (Math.abs(pCam.fov - currentFov) > 0.005) {
       pCam.fov = currentFov;
       pCam.updateProjectionMatrix();
     }

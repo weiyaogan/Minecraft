@@ -11,7 +11,8 @@ export function InputManager() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useWorldStore.getState();
 
-      if (e.code === 'Escape') {
+      if (e.code === 'Escape' || e.key === 'Escape') {
+        e.preventDefault();
         if (state.isInventoryOpen) {
           state.setInventoryOpen(false);
           const canvas = document.querySelector('canvas');
@@ -110,11 +111,11 @@ export function InputManager() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('drop-cursor-item', handleDropCursorItem);
     window.addEventListener('mobile-drop-item', handleMobileDropItem);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('drop-cursor-item', handleDropCursorItem);
       window.removeEventListener('mobile-drop-item', handleMobileDropItem);
     };

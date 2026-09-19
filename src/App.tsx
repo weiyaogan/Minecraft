@@ -22,7 +22,8 @@ import { initAudio } from './utils/audio';
 export default function App() {
   const [isLocked, setIsLocked] = useState(false);
   const [canLock, setCanLock] = useState(true);
-  const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
+  const hasStartedPlaying = useWorldStore(state => state.hasStartedPlaying);
+  const setHasStartedPlaying = useWorldStore(state => state.setHasStartedPlaying);
 
   const blocks = useWorldStore(state => state.blocks);
   const fallingBlocks = useWorldStore(state => state.fallingBlocks);
@@ -49,9 +50,11 @@ export default function App() {
         setTimeout(() => setCanLock(true), 1500);
       }
 
-      // Auto-pause if pointer lock was released while actively playing and not in inventory
-      if (!locked && hasStartedPlaying && !useWorldStore.getState().isInventoryOpen && !useWorldStore.getState().isPaused) {
-        setPaused(true);
+      // Auto-pause immediately if pointer lock was released while actively playing and not in inventory.
+      // Always reads fresh Zustand store state to ensure single-ESC pause works immediately.
+      const store = useWorldStore.getState();
+      if (!locked && store.hasStartedPlaying && !store.isInventoryOpen && !store.isPaused) {
+        store.setPaused(true);
       }
     };
 

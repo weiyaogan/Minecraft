@@ -78,6 +78,8 @@ interface WorldState {
   
   isPaused: boolean;
   setPaused: (isPaused: boolean) => void;
+  hasStartedPlaying: boolean;
+  setHasStartedPlaying: (hasStarted: boolean) => void;
   isMobile: boolean;
   setIsMobile: (isMobile: boolean) => void;
   virtualInputs: VirtualInputs;
@@ -152,6 +154,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     }
     return { isPaused };
   }),
+  
+  hasStartedPlaying: false,
+  setHasStartedPlaying: (hasStartedPlaying) => set({ hasStartedPlaying }),
   
   isMobile: detectIsMobile(),
   setIsMobile: (isMobile) => set({ isMobile }),
