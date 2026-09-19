@@ -432,15 +432,13 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   }),
 
   throwCurrentItem: (dropAll, playerPosOrCameraDir, optionalCameraDir) => set((state) => {
-    const slot = state.hotbar[state.selectedHotbarSlot];
-    if (!slot || !slot.type || slot.count <= 0) return state;
-    
+    const mainHand = state.hotbar[state.selectedHotbarSlot];
+    const useMainHand = Boolean(mainHand?.type && mainHand.count > 0);
+    const slot = useMainHand ? mainHand : state.offhand;
+    if (!slot.type || slot.count <= 0) return state;
+
     const dropCount = dropAll ? slot.count : 1;
     const remaining = slot.count - dropCount;
-    
-    const newHotbar = [...state.hotbar];
-    newHotbar[state.selectedHotbarSlot] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
-
     const { position, velocity } = computeItemThrowSpawnAndVelocity(
       state.playerFeetPosition,
       state.playerHeight,
@@ -455,14 +453,20 @@ export const useWorldStore = create<WorldState>((set, get) => ({
       position,
       velocity,
       count: dropCount,
-      pickupDelay: 0.5, // 0.5 seconds pickup delay for player throws
+      pickupDelay: 0.5,
     };
 
     playItemDropSound();
 
+    if (useMainHand) {
+      const newHotbar = [...state.hotbar];
+      newHotbar[state.selectedHotbarSlot] = remaining > 0 ? { ...slot, count: remaining } : emptySlot();
+      return { hotbar: newHotbar, droppedItems: [...state.droppedItems, newItem] };
+    }
+
     return {
-      hotbar: newHotbar,
-      droppedItems: [...state.droppedItems, newItem]
+      offhand: remaining > 0 ? { ...slot, count: remaining } : emptySlot(),
+      droppedItems: [...state.droppedItems, newItem],
     };
   }),
 
