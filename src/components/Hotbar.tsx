@@ -3,9 +3,10 @@ import { useWorldStore } from '../store';
 import { BlockType } from '../world/blocks';
 import { StatusBars } from './StatusBars';
 
-const HOTBAR_ITEM_SIZE = 26;
-const SLOT_SIZE = 48; // Exactly 48px per slot * 9 = 432px total width
-const TOTAL_HUD_WIDTH = SLOT_SIZE * 9; // 432px
+const HOTBAR_ITEM_SIZE = 24;
+const SLOT_WIDTH = 40;
+const TRAY_HEIGHT = 44;
+const TOTAL_HUD_WIDTH = 364; // 182px * 2 = 364px exact Minecraft GUI proportions
 
 // Reusable mini 3D isometric block preview for voxel blocks
 export function MiniBlock({ type, cubeSize = 24 }: { type: BlockType; cubeSize?: number }) {
@@ -136,8 +137,8 @@ export function Hotbar() {
             onClick={() => useWorldStore.getState().swapOffhand()}
             className="pointer-events-auto cursor-pointer relative"
             style={{
-              width: `${SLOT_SIZE}px`,
-              height: `${SLOT_SIZE}px`,
+              width: `${SLOT_WIDTH}px`,
+              height: `${TRAY_HEIGHT}px`,
               border: '2px solid #000000',
               backgroundColor: 'rgba(0, 0, 0, 0.45)',
               display: 'flex',
@@ -159,7 +160,7 @@ export function Hotbar() {
               }}
             />
             <MiniBlock type={offhand.type} cubeSize={HOTBAR_ITEM_SIZE} />
-            <StackQuantity count={offhand.count} fontSize={13} style={{ bottom: '4px', right: '5px' }} />
+            <StackQuantity count={offhand.count} fontSize={12} style={{ bottom: '3px', right: '4px' }} />
           </div>
         )}
 
@@ -171,74 +172,55 @@ export function Hotbar() {
           {/* Status Bars: Health Hearts, Hunger Drumsticks, Segmented XP Bar */}
           <StatusBars />
 
-          {/* Continuous Hotbar Tray matching EXACTLY the uploaded reference image */}
+          {/* Continuous Hotbar Tray matching EXACTLY image.png pixel art (364px x 44px) */}
           <div 
-            className="relative flex items-center select-none"
+            className="relative select-none"
             style={{
               width: `${TOTAL_HUD_WIDTH}px`,
-              height: `${SLOT_SIZE}px`,
-              border: '2px solid #000000',
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              height: `${TRAY_HEIGHT}px`,
+              backgroundImage: 'url(/hud_hotbar_tray.png)',
+              backgroundSize: '100% 100%',
+              imageRendering: 'pixelated',
               boxSizing: 'border-box',
             }}
           >
-            {/* Inactive Slots in continuous contiguous row */}
+            {/* 9 Slots clickable regions matching exact slot coordinates */}
             {hotbar.map((slot, index) => {
               return (
                 <div 
                   key={index} 
                   onClick={() => setSelectedHotbarSlot(index)}
-                  className="relative flex items-center justify-center pointer-events-auto cursor-pointer select-none"
+                  className="absolute top-0 flex items-center justify-center pointer-events-auto cursor-pointer select-none"
                   style={{
-                    width: `${SLOT_SIZE}px`,
-                    height: '100%',
-                    borderRight: index < 8 ? '2px solid #000000' : 'none',
+                    left: `${index * SLOT_WIDTH}px`,
+                    width: `${SLOT_WIDTH}px`,
+                    height: `${TRAY_HEIGHT}px`,
                     boxSizing: 'border-box',
+                    zIndex: 10,
                   }}
                   title={`Slot ${index + 1}`}
                 >
-                  {/* Beveled silver-gray frame inside each slot */}
-                  <div 
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      border: '3.5px solid #6b6b6b',
-                      borderTopColor: '#b8b8b8',
-                      borderLeftColor: '#b8b8b8',
-                      boxShadow: 'inset 0 0 0 1px #363636',
-                    }}
-                  />
-
                   {/* Slot Item */}
                   {slot.type && <MiniBlock type={slot.type} cubeSize={HOTBAR_ITEM_SIZE} />}
-                  <StackQuantity count={slot.count} fontSize={13} style={{ bottom: '4px', right: '5px' }} />
+                  <StackQuantity count={slot.count} fontSize={12} style={{ bottom: '3px', right: '5px' }} />
                 </div>
               );
             })}
 
-            {/* Active Protruding White Raised Frame (Slot 1 in reference image) */}
+            {/* Active Protruding White Raised Frame (48x48px sprite matching image.png Slot 1) */}
             <div
               className="absolute pointer-events-none transition-none select-none z-20"
               style={{
-                width: `${SLOT_SIZE + 6}px`,
-                height: `${SLOT_SIZE + 6}px`,
-                top: '-3px',
-                left: `${selectedHotbarSlot * SLOT_SIZE - 3}px`,
-                border: '2px solid #000000',
+                width: '48px',
+                height: '48px',
+                top: '-4px',
+                left: `${selectedHotbarSlot * SLOT_WIDTH - 4}px`,
+                backgroundImage: 'url(/hud_active_slot.png)',
+                backgroundSize: '100% 100%',
+                imageRendering: 'pixelated',
                 boxSizing: 'border-box',
               }}
-            >
-              {/* Thick raised pure white / silver beveled frame */}
-              <div
-                className="w-full h-full"
-                style={{
-                  border: '4px solid #cccccc',
-                  borderTopColor: '#ffffff',
-                  borderLeftColor: '#ffffff',
-                  boxShadow: 'inset 0 0 0 1px #808080, 0 0 3px rgba(0, 0, 0, 0.75)',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
+            />
           </div>
         </div>
 
@@ -250,8 +232,8 @@ export function Hotbar() {
             onClick={() => useWorldStore.getState().setInventoryOpen(true)}
             className="pointer-events-auto flex items-center justify-center active:brightness-75 text-white font-bold cursor-pointer select-none transition-all ml-2"
             style={{
-              width: `${SLOT_SIZE}px`,
-              height: `${SLOT_SIZE}px`,
+              width: `${SLOT_WIDTH}px`,
+              height: `${TRAY_HEIGHT}px`,
               backgroundColor: 'rgba(0, 0, 0, 0.45)',
               border: '2px solid #000000',
               boxSizing: 'border-box',

@@ -122,12 +122,22 @@ export function StatusBars() {
     const shake = isRecentlyDamaged || (isLowHealth && (shakeTicks + i) % 2 === 0);
 
     return (
-      <ModernHeart
-        key={`heart-${i}`}
-        state={heartState}
-        shake={shake}
-        isDamaged={isRecentlyDamaged}
-      />
+      <div
+        key={`heart-wrap-${i}`}
+        className="absolute top-0 select-none pointer-events-none"
+        style={{
+          left: `${i * 16}px`,
+          width: '18px',
+          height: '18px',
+          zIndex: 10 - i,
+        }}
+      >
+        <ModernHeart
+          state={heartState}
+          shake={shake}
+          isDamaged={isRecentlyDamaged}
+        />
+      </div>
     );
   });
 
@@ -144,69 +154,66 @@ export function StatusBars() {
     const shake = isLowHunger && (shakeTicks + i) % 3 === 0;
 
     return (
-      <ModernDrumstick
-        key={`food-${i}`}
-        state={foodState}
-        shake={shake}
-      />
+      <div
+        key={`food-wrap-${i}`}
+        className="absolute top-0 select-none pointer-events-none"
+        style={{
+          left: `${i * 16}px`,
+          width: '18px',
+          height: '18px',
+          zIndex: i,
+        }}
+      >
+        <ModernDrumstick
+          state={foodState}
+          shake={shake}
+        />
+      </div>
     );
   });
 
-  // Exactly 18 segmented notches spanning the XP bar matching the image
-  const totalSegments = 18;
-  const filledSegments = Math.round(xpProgress * totalSegments);
-
   return (
-    <div className="relative select-none pointer-events-none w-full flex flex-col items-center">
+    <div 
+      className="relative select-none pointer-events-none flex flex-col items-center"
+      style={{ width: '364px' }}
+    >
       {/* 1. Top Row: Hearts on the left, Drumsticks on the right */}
-      <div className="w-full flex justify-between items-end mb-[4px]">
-        {/* Left: 10 Hearts touching each other with 1px space */}
-        <div className="flex items-center gap-[1px]">
+      <div className="w-full flex justify-between items-end mb-[4px]" style={{ height: '18px' }}>
+        {/* Left: 10 Hearts with exact 16px step (sharing 2px outline for continuous chain) */}
+        <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
           {hearts}
         </div>
 
-        {/* Right: 10 Drumsticks touching each other with 1px space */}
-        <div className="flex items-center gap-[1px]">
+        {/* Right: 10 Drumsticks with exact 16px step (aligned to right edge of XP bar) */}
+        <div className="relative select-none" style={{ width: '162px', height: '18px' }}>
           {drumsticks}
         </div>
       </div>
 
-      {/* 2. XP Bar: Continuous dark-green/teal segmented bar with 18 segments */}
+      {/* 2. XP Bar: Exact pixel-art texture matching image.png (364px x 10px, 18 segments) */}
       <div
-        className="w-full h-[11px] flex items-stretch overflow-hidden mb-[5px]"
+        className="relative overflow-hidden mb-[4px] select-none"
         style={{
-          backgroundColor: '#0a1514',
-          border: '2px solid #000000',
+          width: '364px',
+          height: '10px',
+          backgroundImage: 'url(/hud_xp_bar.png)',
+          backgroundSize: '100% 100%',
+          imageRendering: 'pixelated',
           boxSizing: 'border-box',
         }}
       >
-        {Array.from({ length: totalSegments }).map((_, i) => {
-          const isFilled = i < filledSegments;
-          return (
-            <div
-              key={`xp-seg-${i}`}
-              className="flex-1 h-full relative"
-              style={{
-                backgroundColor: isFilled ? '#78ea12' : '#12201d',
-                backgroundImage: isFilled
-                  ? 'linear-gradient(to bottom, #bdff38 0%, #76db14 45%, #52a808 100%)'
-                  : 'linear-gradient(to bottom, #1d332e 0%, #12201d 45%, #0a1311 100%)',
-                borderRight: i < totalSegments - 1 ? '2px solid #000000' : 'none',
-                boxShadow: isFilled
-                  ? 'inset 0 1px 0 #e8ff9e, inset 0 -1px 0 #3b8005'
-                  : 'inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.6)',
-              }}
-            >
-              {/* Subtle center notch matching image */}
-              {!isFilled && (
-                <div
-                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] opacity-30"
-                  style={{ backgroundColor: '#25443d' }}
-                />
-              )}
-            </div>
-          );
-        })}
+        {/* Active filled XP overlay if player has XP */}
+        {xpProgress > 0 && (
+          <div
+            className="absolute inset-y-0 left-0 overflow-hidden"
+            style={{
+              width: `${Math.min(100, Math.max(0, xpProgress * 100))}%`,
+              backgroundImage: 'url(/hud_xp_fill.png)',
+              backgroundSize: '364px 10px',
+              imageRendering: 'pixelated',
+            }}
+          />
+        )}
       </div>
     </div>
   );
